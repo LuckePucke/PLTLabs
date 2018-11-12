@@ -1,9 +1,40 @@
-EAdd. Exp10 ::= Exp10 "+" Exp11 ;
-ESub. Exp10 ::= Exp10 "-" Exp11 ;
-EMul. Exp11 ::= Exp11 "*" Exp12 ;
-EDiv. Exp11 ::= Exp11 "/" Exp12 ;
-EMod. Exp11 ::= Exp11 "%" Exp12 ;
-EInt. Exp14 ::= Integer ;
+comment "#" ;
+comment "//" ;
+comment "/*" "*/" ;
 
+PDefs.		Program ::= [Def] ;
+terminator Def "" ;
+
+DFun.		Def ::= Type Id "(" [Arg] ")" "{" [Stm] "}" ;
+separator	Arg "," ;
+terminator	Stm "" ;
+
+ADecl.		Arg ::= Type Id ;
+
+SExp.		Stm ::= Exp ";" ;
+SDecl.		Stm ::= Type Id ";" ;
+SDecls.		Stm ::= Type Id "," [Id] ";" ;
+SInit.		Stm ::= Type Id "=" Exp ";" ;i
+
+EInt.		Exp14 ::= Integer ;
+EDouble.	Exp14 ::= Double ;
+EString.	Exp14 ::= String ;
+EChar.		Exp14 ::= Char ;
+ETrue.		Exp14 ::= "true" ;
+EFalse.		Exp14 ::= "false" ;
+EVoid.		Exp14 ::= "void" ;
+
+EId.		Exp14 ::= Id ;
+ECall.		Exp14 ::= Id "(" [Exp] ")" ;
+
+EPIncr.		Exp13 ::= Exp14 "++" ;
+EPDecr.		Exp13 ::= Exp14 "--" ;
+
+EMul.		Exp11 ::= Exp11 "*" Exp12 ;
+EDiv.		Exp11 ::= Exp11 "/" Exp12 ;
+EMod.		Exp11 ::= Exp11 "%" Exp12 ;
+
+EAdd.		Exp10 ::= Exp10 "+" Exp11 ;
+ESub.		Exp10 ::= Exp10 "-" Exp11 ;
 	coercions Exp 14 ;
 
