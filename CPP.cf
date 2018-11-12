@@ -1,8 +1,9 @@
-EAdd. Exp  ::= Exp  "+" Exp1 ;
-ESub. Exp  ::= Exp  "-" Exp1 ;
-EMul. Exp1 ::= Exp1 "*" Exp2 ;
-EDiv. Exp1 ::= Exp1 "/" Exp2 ;
-EInt. Exp2 ::= Integer ;
+EAdd. Exp10 ::= Exp10 "+" Exp11 ;
+ESub. Exp10 ::= Exp10 "-" Exp11 ;
+EMul. Exp11 ::= Exp11 "*" Exp12 ;
+EDiv. Exp11 ::= Exp11 "/" Exp12 ;
+EMod. Exp11 ::= Exp11 "%" Exp12 ;
+EInt. Exp14 ::= Integer ;
 
-	coercions Exp 2 ;
+	coercions Exp 14 ;
 
