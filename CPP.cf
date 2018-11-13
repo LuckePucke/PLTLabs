@@ -30,11 +30,39 @@ ECall.		Exp14 ::= Id "(" [Exp] ")" ;
 EPIncr.		Exp13 ::= Exp14 "++" ;
 EPDecr.		Exp13 ::= Exp14 "--" ;
 
+EIncr.		Exp12 ::= "++" Exp13 ;
+EDecr.		Exp12 ::= "--" Exp13 ;      
+EDeref.		Exp12 ::= Exp13"*" ; 
+ENeg.		Exp12 ::= "!"Exp13 ;
+
 EMul.		Exp11 ::= Exp11 "*" Exp12 ;
 EDiv.		Exp11 ::= Exp11 "/" Exp12 ;
 EMod.		Exp11 ::= Exp11 "%" Exp12 ;
 
 EAdd.		Exp10 ::= Exp10 "+" Exp11 ;
 ESub.		Exp10 ::= Exp10 "-" Exp11 ;
+
+ERShift.	Exp9 ::= Exp9 ">>" Exp10 ; 
+ELShift. 	Exp9 ::= Exp9 "<<" Exp10 ;
+
+ELt. 		Exp8 ::= Exp8 "<" Exp9 ;
+EGt. 		Exp8 ::= Exp8 ">" Exp9 ;
+ELtEq. 		Exp8 ::= Exp8 "<=" Exp9 ;
+EGtEq. 		Exp8 ::= Exp8 ">=" Exp9 ;
+
+EEq.		Exp7 ::= Exp7 "==" Exp8 ;
+ENEq.		Exp7 ::= Exp7 "==" Exp8 ;
+
+EAnd.		Exp4 ::= Exp4 "&&" Exp5 ; 
+EOr.		Exp3 ::= Exp3 "||" Exp4 ; 
+
+EAss.		Exp2 ::= Exp2 "=" Exp3 ; 
+EAddAss.	Exp2 ::= Exp2 "+=" Exp3 ; 
+EMinAss.	Exp2 ::= Exp2 "-=" Exp3 ;
+
+ECond. 		Exp1 ::= Exp1 "?" Exp2 ":" Exp3 ; 
+
+EExc.		Exp ::= "throw" Exp ; 
+
 	coercions Exp 14 ;
 
