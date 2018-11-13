@@ -14,7 +14,7 @@ ADecl.		Arg ::= Type Id ;
 SExp.		Stm ::= Exp ";" ;
 SDecl.		Stm ::= Type Id ";" ;
 SDecls.		Stm ::= Type Id "," [Id] ";" ;
-SInit.		Stm ::= Type Id "=" Exp ";" ;i
+SInit.		Stm ::= Type Id "=" Exp ";" ;
 
 EInt.		Exp14 ::= Integer ;
 EDouble.	Exp14 ::= Double ;
