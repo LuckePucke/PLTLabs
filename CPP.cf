@@ -6,16 +6,18 @@ PDefs.		Program ::= [Def] ;
 terminator	Def "" ;
 
 DFun.		Def ::= Type Id "(" [Arg] ")" "{" [Stm] "}" ;
+
+DUsing.		Def ::= "using" [QC] ";" ;
+DTypedef.	Def ::= "typedef" Id Id ";" ;
+
 separator	Arg "," ;
 terminator	Stm "" ;
 
 ADecl.		Arg ::= Type Id ;
 
 SExp.		Stm ::= Exp ";" ;
-SDecl.		Stm ::= Type Id ";" ;
-SDecls.		Stm ::= Type Id "," [Id] ";" ;
+SDecl.		Stm ::= Type [Id] ";" ;
 SInit.		Stm ::= Type Id "=" Exp ";" ;
-
 SReturn.	Stm ::= "return" Exp ";" ;
 SBlock.		Stm ::= "{" [Stm] "}" ;
 
@@ -26,9 +28,8 @@ EChar.		Exp14 ::= Char ;
 ETrue.		Exp14 ::= "true" ;
 EFalse.		Exp14 ::= "false" ;
 EVoid.		Exp14 ::= "void" ;
-EQConst.	Exp14 ::= Id "::" [Id] ;
 
-EId.		Exp14 ::= Id ;
+EQC.		Exp14 ::= [QC] ;
 ECall.		Exp14 ::= Id "(" [Exp] ")" ;
 
 EPIncr.		Exp13 ::= Exp14 "++" ;
@@ -69,14 +70,17 @@ ECond. 		Exp1 ::= Exp1 "?" Exp2 ":" Exp3 ;
 EExc.		Exp ::= "throw" Exp ; 
 
 token Id (letter (letter | digit | '_')*) ;
+QCDef.		QC ::= Id ;
+
+separator	nonempty Id "," ;
+separator	nonempty QC "::" ;
 
 Tint.		Type ::= "int" ;
 Tbool.		Type ::= "bool" ;
 Tchar.		Type ::= "char" ;
 Tdouble.	Type ::= "double" ;
 Tvoid.		Type ::= "void" ;
-
-separator	Id "," ;
+TQC.		Type ::= [QC] ;
 
 coercions	Exp 14 ;
 separator	Exp "," ;
