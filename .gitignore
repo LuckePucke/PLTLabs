@@ -6,4 +6,6 @@
 *.y
 *.o
 *.hi
+*.cc
+TestCPP
 
