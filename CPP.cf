@@ -23,7 +23,7 @@ SBlock.		Stm ::= "{" [Stm] "}" ;
 
 EInt.		Exp14 ::= Integer ;
 EDouble.	Exp14 ::= Double ;
-EString.	Exp14 ::= String ;
+EString.	Exp14 ::= [String] ;
 EChar.		Exp14 ::= Char ;
 ETrue.		Exp14 ::= "true" ;
 EFalse.		Exp14 ::= "false" ;
@@ -74,6 +74,7 @@ QCDef.		QC ::= Id ;
 
 separator	nonempty Id "," ;
 separator	nonempty QC "::" ;
+separator	String "" ;
 
 Tint.		Type ::= "int" ;
 Tbool.		Type ::= "bool" ;
