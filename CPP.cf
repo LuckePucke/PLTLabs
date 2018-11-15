@@ -2,12 +2,6 @@ comment "#" ;
 comment "//" ;
 comment "/*" "*/" ;
 
-TInt.		Type ::= "int" ;
-TBool.		Type ::= "bool" ;
-TChar.		Type ::= "char" ;
-TDouble.	Type ::= "double" ;
-TVoid.		Type ::= "void" ;
-
 PDefs.		Program ::= [Def] ;
 terminator	Def "" ;
 
@@ -75,6 +69,12 @@ ECond. 		Exp1 ::= Exp1 "?" Exp2 ":" Exp3 ;
 EExc.		Exp ::= "throw" Exp ; 
 
 token Id (letter (letter | digit | '_')*) ;
+
+Tint.		Type ::= "int" ;
+Tbool.		Type ::= "bool" ;
+Tchar.		Type ::= "char" ;
+Tdouble.	Type ::= "double" ;
+Tvoid.		Type ::= "void" ;
 
 separator	Id "," ;
 
