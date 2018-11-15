@@ -30,7 +30,11 @@ EFalse.		Exp14 ::= "false" ;
 EVoid.		Exp14 ::= "void" ;
 
 EQC.		Exp14 ::= [QC] ;
-ECall.		Exp14 ::= Id "(" [Exp] ")" ;
+
+ECall.		Exp13 ::= Exp13 "(" [Exp] ")" ;
+EIndex.		Exp13 ::= Exp13 "[" Exp14 "]" ;
+EStructP.	Exp13 ::= Exp13 "->" Exp14 ;
+EStructD.	Exp13 ::= Exp13 "." Exp14 ;
 
 EPIncr.		Exp13 ::= Exp14 "++" ;
 EPDecr.		Exp13 ::= Exp14 "--" ;
