@@ -37,46 +37,46 @@ SIf.		Stm ::= "if" "(" Exp ")" Stm ;
 SIfElse.	Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
 STypedef.	Stm ::= "typedef" Type Id ";" ;
 
-EInt.		Exp14 ::= Integer ;
-EDouble.	Exp14 ::= Double ;
-EString.	Exp14 ::= [String] ;
-EChar.		Exp14 ::= Char ;
-ETrue.		Exp14 ::= "true" ;
-EFalse.		Exp14 ::= "false" ;
-EVoid.		Exp14 ::= "void" ;
+EInt.		Exp15 ::= Integer ;
+EDouble.	Exp15 ::= Double ;
+EString.	Exp15 ::= [String] ;
+EChar.		Exp15 ::= Char ;
+ETrue.		Exp15 ::= "true" ;
+EFalse.		Exp15 ::= "false" ;
+EVoid.		Exp15 ::= "void" ;
 
-EQC.		Exp14 ::= [QC] ;
+EQC.		Exp15 ::= [QC] ;
 
-ECall.		Exp13 ::= Exp13 "(" [Exp] ")" ;
-EIndex.		Exp13 ::= Exp13 "[" Exp "]" ;
-EStrProjA.	Exp13 ::= Exp13 "->" Exp14 ;
-EStrProjD.	Exp13 ::= Exp13 "." Exp14 ;
+ECall.		Exp14 ::= Exp14 "(" [Exp] ")" ;
+EIndex.		Exp14 ::= Exp14 "[" Exp "]" ;
+EStrProjA.	Exp14 ::= Exp14 "->" Exp15 ;
+EStrProjD.	Exp14 ::= Exp14 "." Exp15 ;
 
-EPIncr.		Exp13 ::= Exp14 "++" ;
-EPDecr.		Exp13 ::= Exp14 "--" ;
+EPIncr.		Exp14 ::= Exp15 "++" ;
+EPDecr.		Exp14 ::= Exp15 "--" ;
 
-EIncr.		Exp12 ::= "++" Exp13 ;
-EDecr.		Exp12 ::= "--" Exp13 ;
-EDeref.		Exp12 ::= "*" Exp13 ;
-ENeg.		Exp12 ::= "!" Exp13 ;
+EIncr.		Exp13 ::= "++" Exp14 ;
+EDecr.		Exp13 ::= "--" Exp14 ;
+EDeref.		Exp13 ::= "*" Exp14 ;
+ENeg.		Exp13 ::= "!" Exp14 ;
 
-EMul.		Exp11 ::= Exp11 "*" Exp12 ;
-EDiv.		Exp11 ::= Exp11 "/" Exp12 ;
-EMod.		Exp11 ::= Exp11 "%" Exp12 ;
+EMul.		Exp12 ::= Exp12 "*" Exp13 ;
+EDiv.		Exp12 ::= Exp12 "/" Exp13 ;
+EMod.		Exp12 ::= Exp12 "%" Exp13 ;
 
-EAdd.		Exp10 ::= Exp10 "+" Exp11 ;
-ESub.		Exp10 ::= Exp10 "-" Exp11 ;
+EAdd.		Exp11 ::= Exp11 "+" Exp12 ;
+ESub.		Exp11 ::= Exp11 "-" Exp12 ;
 
-ERShift.	Exp9 ::= Exp9 ">>" Exp10 ;
-ELShift. 	Exp9 ::= Exp9 "<<" Exp10 ;
+ERShift.	Exp10 ::= Exp10 ">>" Exp11 ;
+ELShift. 	Exp10 ::= Exp10 "<<" Exp11 ;
 
-ELt. 		Exp8 ::= Exp8 "<" Exp9 ;
-EGt. 		Exp8 ::= Exp8 ">" Exp9 ;
-ELtEq. 		Exp8 ::= Exp8 "<=" Exp9 ;
-EGtEq. 		Exp8 ::= Exp8 ">=" Exp9 ;
+ELt. 		Exp9 ::= Exp9 "<" Exp10 ;
+EGt. 		Exp9 ::= Exp9 ">" Exp10 ;
+ELtEq. 		Exp9 ::= Exp9 "<=" Exp10 ;
+EGtEq. 		Exp9 ::= Exp9 ">=" Exp10 ;
 
-EEq.		Exp7 ::= Exp7 "==" Exp8 ;
-ENEq.		Exp7 ::= Exp7 "!=" Exp8 ;
+EEq.		Exp8 ::= Exp8 "==" Exp9 ;
+ENEq.		Exp8 ::= Exp8 "!=" Exp9 ;
 
 EAnd.		Exp4 ::= Exp4 "&&" Exp5 ; 
 EOr.		Exp3 ::= Exp3 "||" Exp4 ; 
@@ -85,9 +85,9 @@ EAss.		Exp2 ::= Exp2 "=" Exp3 ;
 EAddAss.	Exp2 ::= Exp2 "+=" Exp3 ; 
 ESubAss.	Exp2 ::= Exp2 "-=" Exp3 ;
 
-ECond. 		Exp1 ::= Exp1 "?" Exp2 ":" Exp3 ; 
+ECond. 		Exp2 ::= Exp2 "?" Exp3 ":" Exp4 ; 
 
-EExc.		Exp ::= "throw" Exp ; 
+EExc.		Exp1 ::= "throw" Exp1 ; 
 
 token Id (letter (letter | digit | '_')*) ;
 QCDef.		QC ::= Id ;
@@ -105,6 +105,6 @@ TQC.		Type ::= [QC] ;
 TRef.		Type ::= Type "&" ;
 TDRef.		Type ::= Type "& &" ;
 
-coercions	Exp 14 ;
+coercions	Exp 15 ;
 separator	Exp "," ;
 
