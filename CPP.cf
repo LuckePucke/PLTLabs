@@ -6,20 +6,36 @@ PDefs.		Program ::= [Def] ;
 terminator	Def "" ;
 
 DFun.		Def ::= Type Id "(" [Arg] ")" "{" [Stm] "}" ;
+DFunDecl.	Def ::= Type Id "(" [Arg] ")" ";" ;
 
 DUsing.		Def ::= "using" [QC] ";" ;
-DTypedef.	Def ::= "typedef" Id Id ";" ;
+DTypedef.	Def ::= "typedef" Type Id ";" ;
 
 separator	Arg "," ;
 terminator	Stm "" ;
 
+ATDecl.		Arg ::= Type ;
 ADecl.		Arg ::= Type Id ;
+ACTDecl.	Arg ::= "const" Type ;
+ACDecl.		Arg ::= "const" Type Id ;
 
 SExp.		Stm ::= Exp ";" ;
+
+STDecl.		Stm ::= Type ";" ;
 SDecl.		Stm ::= Type [Id] ";" ;
 SInit.		Stm ::= Type Id "=" Exp ";" ;
+SCTDecl.	Stm ::= "const" Type ";" ;
+SCDecl.		Stm ::= "const" Type [Id] ";" ;
+SCInit.		Stm ::= "const" Type Id "=" Exp ";" ;
+
 SReturn.	Stm ::= "return" Exp ";" ;
 SBlock.		Stm ::= "{" [Stm] "}" ;
+SWhile.		Stm ::= "while" "(" Exp ")" Stm ;
+SDoWhile.	Stm ::= "do" Stm "while" "(" Exp ")" ;
+SFor.		Stm ::= "for" "(" Stm Exp ";" Exp ")" Stm ;
+SIf.		Stm ::= "if" "(" Exp ")" Stm ;
+SIfElse.	Stm ::= "if" "(" Exp ")" Stm "else" Stm ;
+STypedef.	Stm ::= "typedef" Type Id ";" ;
 
 EInt.		Exp14 ::= Integer ;
 EDouble.	Exp14 ::= Double ;
@@ -32,16 +48,16 @@ EVoid.		Exp14 ::= "void" ;
 EQC.		Exp14 ::= [QC] ;
 
 ECall.		Exp13 ::= Exp13 "(" [Exp] ")" ;
-EIndex.		Exp13 ::= Exp13 "[" Exp14 "]" ;
-EStructP.	Exp13 ::= Exp13 "->" Exp14 ;
-EStructD.	Exp13 ::= Exp13 "." Exp14 ;
+EIndex.		Exp13 ::= Exp13 "[" Exp "]" ;
+EStrProjA.	Exp13 ::= Exp13 "->" Exp14 ;
+EStrProjD.	Exp13 ::= Exp13 "." Exp14 ;
 
 EPIncr.		Exp13 ::= Exp14 "++" ;
 EPDecr.		Exp13 ::= Exp14 "--" ;
 
 EIncr.		Exp12 ::= "++" Exp13 ;
 EDecr.		Exp12 ::= "--" Exp13 ;
-EDeref.		Exp12 ::= Exp13 "*" ;
+EDeref.		Exp12 ::= "*" Exp13 ;
 ENeg.		Exp12 ::= "!" Exp13 ;
 
 EMul.		Exp11 ::= Exp11 "*" Exp12 ;
@@ -60,7 +76,7 @@ ELtEq. 		Exp8 ::= Exp8 "<=" Exp9 ;
 EGtEq. 		Exp8 ::= Exp8 ">=" Exp9 ;
 
 EEq.		Exp7 ::= Exp7 "==" Exp8 ;
-ENEq.		Exp7 ::= Exp7 "==" Exp8 ;
+ENEq.		Exp7 ::= Exp7 "!=" Exp8 ;
 
 EAnd.		Exp4 ::= Exp4 "&&" Exp5 ; 
 EOr.		Exp3 ::= Exp3 "||" Exp4 ; 
@@ -86,6 +102,8 @@ Tchar.		Type ::= "char" ;
 Tdouble.	Type ::= "double" ;
 Tvoid.		Type ::= "void" ;
 TQC.		Type ::= [QC] ;
+TRef.		Type ::= Type "&" ;
+TDRef.		Type ::= Type "& &" ;
 
 coercions	Exp 14 ;
 separator	Exp "," ;
