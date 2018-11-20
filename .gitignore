@@ -6,6 +6,7 @@
 *.y
 *.o
 *.hi
+*.swp
 TestCPP
 lab2
 
