@@ -9,30 +9,30 @@ import CPP.Abs
 import CPP.Print
 import CPP.ErrM
 
-type Env = (Sig, [Context])			-- functions and context stack
-type Sig = Map Id ([Type], Type)	-- function type signature
-type Context = Map Id Type			-- variables with their types
+type Env = (Sig, [Context])		-- functions and context stack
+type Sig = (Id, ([Type], Type))	-- function type signature
+type Context = (Id, Type)		-- variables with their types
 
 typecheck :: Program -> Err ()
 typecheck p = return ()
 
 lookVar :: Env -> Id -> Err Type
 lookVar (_, []) id = fail $ "lookVar: Id not in Env"
-lookVar (sig, ((Map cid ctyp):cs)) id
+lookVar (sig, ((cid, ctyp):cs)) id
 	| cid == id = return ctyp
 	| otherwise = lookVar (sig, cs) id
 
 updateVar :: Env -> Id -> Type -> Err Env
-updateVar (sig, cs) id typ = (sig, (updateVar' cs id typ))
+updateVar (sig, cs) id typ = return (sig, (updateVar' cs id typ))
 
 updateVar' :: [Context] -> Id -> Type -> [Context]
-updateVar' [] id typ = [(Map id typ)]
+updateVar' [] id typ = [(id typ)]
 updateVar' (c:cs) id typ = case c of 
-	(Map id typ)	-> (c:cs)
-	(Map id _)		-> fail $ "updateVar. Id has a different Type"
-	_				-> [c]++(updateVar' cs id typ)
+	(id, typ)	-> (c:cs)
+	(id, _)		-> fail $ "updateVar. Id has a different Type"
+	_			-> [c]++(updateVar' cs id typ)
 
-emptyEnv :: Env
+--emptyEnv :: Env
 
 checkExp :: Env -> Type -> Exp -> Err ()
 checkExp env typ exp = do
