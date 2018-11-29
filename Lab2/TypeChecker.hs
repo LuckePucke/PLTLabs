@@ -26,19 +26,19 @@ updateVar :: Env -> Id -> Type -> Err Env
 updateVar (sig, cs) id typ = return (sig, (updateVar' cs id typ))
 
 updateVar' :: [Context] -> Id -> Type -> [Context]
-updateVar' [] id typ = [(id typ)]
-updateVar' (c:cs) id typ = case c of 
+updateVar' [] id typ 		= [(id, typ)]
+updateVar' (c:cs) id typ 	= case c of 
 	(id, typ)	-> (c:cs)
 	(id, _)		-> fail $ "updateVar. Id has a different Type"
 	_			-> [c]++(updateVar' cs id typ)
 
 --emptyEnv :: Env
 
-checkExp :: Env -> Type -> Exp -> Err ()
+checkExp :: Env -> Type -> Exp -> Err Env
 checkExp env typ exp = do
 	typ2 <- inferExp env exp
 	if (typ2 == typ) then
-		return ()
+		return env
 	else
 		fail $ "type of " ++ printTree exp
 
@@ -51,7 +51,7 @@ inferExp env x = case x of
 	EDouble a	-> return Type_double
 	
 	EId id			-> lookVar env id
-	EApp id exps	-> lookvar env id
+	EApp id exps	-> lookVar env id
 --	EApp id exps	-> do
 --		map (\exp -> inferExp env exp) exps
 --		lookVar env id
@@ -81,19 +81,23 @@ inferExp env x = case x of
 -- inferArithmBin i boken.
 inferArithm :: Env -> Exp -> Exp -> Err Type
 inferArithm env a b = do
-	typ <- inferExp env a
-	if elem typ [Type_int, Type_double] then
-		checkExp env b typ
+	typ 	<- inferExp env a
+	typ2 	<- inferExp env b
+	if (elem typ [Type_int, Type_double]) && (typ == typ2) then
+		return typ
 	else
-		fail $ "type of expression " ++ printTree exp
+		fail $ "inferArithm: type of expression " -- ++ printTree exp
 
-checkStm :: Env -> Type -> Exp -> Err Env
+checkStm :: Env -> Type -> Stm -> Err Env
 checkStm env val x = case x of
 	SExp exp -> do
 		inferExp env exp
 		return env
-	SDecls typ ids ->
-		map (\id -> updateVar env id typ) ids
+	SDecls typ ids -> case ids of 
+		[] 		-> return env
+		(id:xs) -> do 
+			updateVar env id typ
+			checkStm env val (SDecls typ xs)
 	SInit typ id exp ->
 		updateVar env id typ
 	SReturn exp -> do
@@ -102,8 +106,11 @@ checkStm env val x = case x of
 	SWhile exp stm -> do
 		checkExp env Type_bool exp
 		checkStm env val stm
-	SBlock stms ->
-		map (\stm -> checkStm env val stm) stms
+	SBlock stms -> case stms of
+		[]		-> return env
+		stm:xs 	-> do
+			checkStm env val stm
+			checkStm env val (SBlock xs)
 	SIfElse exp stm0 stm1 -> do
 		checkExp env Type_bool exp
 		checkStm env val stm0
