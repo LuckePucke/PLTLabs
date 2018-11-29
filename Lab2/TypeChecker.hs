@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+
 module TypeChecker where
 
 import Control.Monad
@@ -9,18 +11,43 @@ import CPP.Abs
 import CPP.Print
 import CPP.ErrM
 
-type Env = (Sig, [Context])		-- functions and context stack
-type Sig = (Id, ([Type], Type))	-- function type signature
-type Context = (Id, Type)		-- variables with their types
+type Env = (Sig, [Context])			-- functions and context stack
+type Sig = Map Id ([Type], Type)	-- function type signature
+type Context = Map Id Type			-- variables with their types
 
 typecheck :: Program -> Err ()
-typecheck p = return ()
+typecheck (PDefs defs) = checkDefs defs
+
+-- | Builtin-functions
+builtin :: [Sig]
+builtin =
+  [ Map (Id "readInt") ([], Type_int)
+  , Map (Id "readDouble")   ([], Type_double)
+  , Map (Id "printInt") ([Type_int], Type_void )
+  , Map (Id "printDouble") ([Type_double], Type_void )
+  ]
+
+
+--createEnv :: Id -> Type -> Err Env
+--createEnv id typ = return [((id, ([], typ)), [])]
+
+checkDefs :: [Def] -> Err ()
+checkDefs [] = return ()
+checkDefs ((DFun typ id args stms):defs) = do
+			env <- createEnv id typ
+			env <- updateArgs env args
+			env <- checkStm env (SBlock stms)
+			return ()
 
 lookVar :: Env -> Id -> Err Type
 lookVar (_, []) id = fail $ "lookVar: Id not in Env"
 lookVar (sig, ((cid, ctyp):cs)) id
 	| cid == id = return ctyp
 	| otherwise = lookVar (sig, cs) id
+
+updateArgs :: Env -> [Arg] -> Err Env
+updateArgs env [] 						= return env
+updateArgs env ((ADecl typ id):args) 	= updateVar env id typ 
 
 updateVar :: Env -> Id -> Type -> Err Env
 updateVar (sig, cs) id typ = return (sig, (updateVar' cs id typ))
@@ -32,7 +59,6 @@ updateVar' (c:cs) id typ 	= case c of
 	(id, _)		-> fail $ "updateVar. Id has a different Type"
 	_			-> [c]++(updateVar' cs id typ)
 
---emptyEnv :: Env
 
 checkExp :: Env -> Type -> Exp -> Err Env
 checkExp env typ exp = do
@@ -88,8 +114,9 @@ inferArithm env a b = do
 	else
 		fail $ "inferArithm: type of expression " -- ++ printTree exp
 
-checkStm :: Env -> Type -> Stm -> Err Env
-checkStm env val x = case x of
+
+checkStm :: Env -> Stm -> Err Env
+checkStm env x = case x of
 	SExp exp -> do
 		inferExp env exp
 		return env
@@ -97,7 +124,7 @@ checkStm env val x = case x of
 		[] 		-> return env
 		(id:xs) -> do 
 			updateVar env id typ
-			checkStm env val (SDecls typ xs)
+			checkStm env (SDecls typ xs)
 	SInit typ id exp ->
 		updateVar env id typ
 	SReturn exp -> do
@@ -105,15 +132,15 @@ checkStm env val x = case x of
 		return env
 	SWhile exp stm -> do
 		checkExp env Type_bool exp
-		checkStm env val stm
+		checkStm env stm
 	SBlock stms -> case stms of
 		[]		-> return env
 		stm:xs 	-> do
-			checkStm env val stm
-			checkStm env val (SBlock xs)
+			checkStm env stm
+			checkStm env (SBlock xs)
 	SIfElse exp stm0 stm1 -> do
 		checkExp env Type_bool exp
-		checkStm env val stm0
-		checkStm env val stm1
+		checkStm env stm0
+		checkStm env stm1
 
 
