@@ -41,9 +41,9 @@ checkDefs ((DFun typ id args stms):defs) = do
 
 lookVar :: Env -> Id -> Err Type
 lookVar (_, []) id = fail $ "lookVar: Id not in Env"
-lookVar (sig, ((cid, ctyp):cs)) id
-	| cid == id = return ctyp
-	| otherwise = lookVar (sig, cs) id
+lookVar (sig, (con:cs)) id = case (Map.lookup id con) of
+	 Just typ	= return typ
+	 Nothing	= lookVar (sig, cs) id
 
 updateArgs :: Env -> [Arg] -> Err Env
 updateArgs env [] 						= return env
