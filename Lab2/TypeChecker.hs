@@ -11,20 +11,26 @@ import CPP.Abs
 import CPP.Print
 import CPP.ErrM
 
-type Env = (Sig, [Context])			-- functions and context stack
-type Sig = Map Id ([Type], Type)	-- function type signature
-type Context = Map Id Type			-- variables with their types
+type Env = (Sig, [Context])	-- functions and context stack
+type Sig = Map Id FunType	-- function type signature
+type Context = Map Id Type	-- variables with their types
+data FunType = FunType { funRet :: Type, funPars :: [Type] }
 
 typecheck :: Program -> Err ()
-typecheck (PDefs defs) = checkDefs defs
+typecheck (PDefs defs) = do
+	let sig = builtin ++ map mkF defs
+		mkF (DFun typ id args stms) = (id, FunType typ $ 
+			map (\ (ADecl typ _) -> typ) args)
+	
+	checkDefs defs
 
 -- | Builtin-functions
-builtin :: [Sig]
+builtin :: [(Id, FunType)]
 builtin =
-  [ Map (Id "readInt") ([], Type_int)
-  , Map (Id "readDouble")   ([], Type_double)
-  , Map (Id "printInt") ([Type_int], Type_void )
-  , Map (Id "printDouble") ([Type_double], Type_void )
+  [ (Id "readInt"    , FunType Type_int    [])
+  , (Id "readDouble" , FunType Type_double [])
+  , (Id "printInt"   , FunType Type_void [Type_int])
+  , (Id "printDouble", FunType Type_void [Type_double])
   ]
 
 
@@ -34,20 +40,20 @@ builtin =
 checkDefs :: [Def] -> Err ()
 checkDefs [] = return ()
 checkDefs ((DFun typ id args stms):defs) = do
-			env <- createEnv id typ
-			env <- updateArgs env args
-			env <- checkStm env (SBlock stms)
-			return ()
+	env <- createEnv id typ
+	env <- updateArgs env args
+	env <- checkStm env (SBlock stms)
+	return ()
 
 lookVar :: Env -> Id -> Err Type
 lookVar (_, []) id = fail $ "lookVar: Id not in Env"
 lookVar (sig, (con:cs)) id = case (Map.lookup id con) of
-	 Just typ	= return typ
-	 Nothing	= lookVar (sig, cs) id
+	 Just typ	-> return typ
+	 Nothing	-> lookVar (sig, cs) id
 
-updateArgs :: Env -> [Arg] -> Err Env
-updateArgs env [] 						= return env
-updateArgs env ((ADecl typ id):args) 	= updateVar env id typ 
+-- updateArgs :: Env -> [Arg] -> Err Env
+-- updateArgs env [] 						= return env
+-- updateArgs env ((ADecl typ id):args) 	= updateVar env id typ 
 
 updateVar :: Env -> Id -> Type -> Err Env
 updateVar (sig, cs) id typ = return (sig, (updateVar' cs id typ))
