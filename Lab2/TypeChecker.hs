@@ -19,11 +19,11 @@ data FunType = FunType { funRet :: Type, funPars :: [Type] }
 -- | Builtin-functions
 builtin :: [(Id, FunType)]
 builtin =
-  [ (Id "readInt"    , FunType Type_int    [])
-  , (Id "readDouble" , FunType Type_double [])
-  , (Id "printInt"   , FunType Type_void [Type_int])
-  , (Id "printDouble", FunType Type_void [Type_double])
-  ]
+	[ (Id "readInt"    , FunType Type_int    [])
+	, (Id "readDouble" , FunType Type_double [])
+	, (Id "printInt"   , FunType Type_void [Type_int])
+	, (Id "printDouble", FunType Type_void [Type_double])
+	]
 
 typecheck :: Program -> Err ()
 typecheck (PDefs defs) = do
@@ -36,32 +36,37 @@ typecheck (PDefs defs) = do
 checkDefs :: Sig -> [Def] -> Err ()
 checkDefs sig [] = return ()
 checkDefs sig ((DFun typ id args stms):defs) = do
-	env <- updateArgs (sig, [(Map.empty)]) args
-	checkStm env (SBlock stms)
+	env <- newArgs (sig, [(Map.empty)]) args
+	checkStm env typ (SBlock stms)
 	checkDefs sig defs
 
+lookFun :: Env -> Id -> Err Type
+lookFun (sig, c) id = case (Map.lookup id sig) of
+	Just (FunType typ typs)	-> return typ
+	Nothing					-> fail $ "lookFun: Function not in Sig"
+
 lookVar :: Env -> Id -> Err Type
-lookVar (_, []) id = fail $ "lookVar: Id not in Env"
-lookVar (sig, (con:cs)) id = case (Map.lookup id con) of
+lookVar (sig, []) id = fail $ "lookVar: Id not in Env"
+lookVar (sig, (c:cs)) id = case (Map.lookup id c) of
 	 Just typ	-> return typ
 	 Nothing	-> lookVar (sig, cs) id
 
-updateArgs :: Env -> [Arg] -> Err Env
-updateArgs env []						= return env
-updateArgs env ((ADecl typ id):args)	= updateVar env id typ 
+newFun :: Env -> Id -> FunType -> Err Env
+newFun (sig, cs) id ft = case (Map.lookup id sig) of
+	Nothing		-> return ((Map.insert id ft sig), cs)
+	Just _		-> fail $ "newFun: Function already defined."
 
-updateVar :: Env -> Id -> Type -> Err Env
-updateVar env@(sig, (c:cs)) id typ = case (updateVar' env id) of
-	Just typ	-> return env
-	Just _		-> fail $ "updateVar: Variable already defined with different type."
+newArgs :: Env -> [Arg] -> Err Env
+newArgs env []						= return env
+newArgs env ((ADecl typ id):args)	= do
+	env0 <- newVar env id typ
+	newArgs env0 args
+
+newVar :: Env -> Id -> Type -> Err Env
+newVar env id Type_void = fail $ "newVar: Variables can't have type void."
+newVar env@(sig, (c:cs)) id typ = case (Map.lookup id c) of
 	Nothing		-> return (sig, ((Map.insert id typ c):cs))
-
-updateVar' :: Env -> Id -> Maybe Type
-updateVar' (_, []) id = Nothing
-updateVar' (sig, (con:cs)) id = case (Map.lookup id con) of
-	 Just typ	-> Just typ
-	 Nothing	-> updateVar' (sig, cs) id
-
+	Just _		-> fail $ "newVar: Variable already defined."
 
 checkExp :: Env -> Type -> Exp -> Err Env
 checkExp env typ exp = do
@@ -80,7 +85,7 @@ inferExp env x = case x of
 	EDouble a	-> return Type_double
 	
 	EId id			-> lookVar env id
-	EApp id exps	-> lookVar env id
+	EApp id exps	-> lookFun env id
 --	EApp id exps	-> do
 --		map (\exp -> inferExp env exp) exps
 --		lookVar env id
@@ -118,32 +123,33 @@ inferArithm env a b = do
 		fail $ "inferArithm: type of expression " -- ++ printTree exp
 
 
-checkStm :: Env -> Stm -> Err Env
-checkStm env x = case x of
+checkStm :: Env -> Type -> Stm -> Err Env
+checkStm env ret x = case x of
 	SExp exp -> do
 		inferExp env exp
 		return env
 	SDecls typ ids -> case ids of 
 		[]		-> return env
 		(id:xs) -> do 
-			updateVar env id typ
-			checkStm env (SDecls typ xs)
+			env0 <- newVar env id typ
+			checkStm env0 ret (SDecls typ xs)
 	SInit typ id exp ->
-		updateVar env id typ
+		newVar env id typ
 	SReturn exp -> do
-		inferExp env exp
-		return env
+		typ <- inferExp env exp
+		if (typ == ret) then return env
+		else fail $ "checkStm: Invalid return type."
 	SWhile exp stm -> do
 		checkExp env Type_bool exp
-		checkStm env stm
+		checkStm env ret stm
 	SBlock stms -> case stms of
 		[]		-> return env
 		stm:xs 	-> do
-			checkStm env stm
-			checkStm env (SBlock xs)
+			env0 <- checkStm env ret stm
+			checkStm env0 ret (SBlock xs)
 	SIfElse exp stm0 stm1 -> do
 		checkExp env Type_bool exp
-		checkStm env stm0
-		checkStm env stm1
+		checkStm env ret stm0
+		checkStm env ret stm1
 
 
