@@ -118,13 +118,13 @@ inferArithm env a b = do
 		fail $ "inferArithm: type of expression " -- ++ printTree exp
 
 
-checkStm :: Env -> Stm -> Err ()
+checkStm :: Env -> Stm -> Err Env
 checkStm env x = case x of
 	SExp exp -> do
 		inferExp env exp
-		return ()
+		return env
 	SDecls typ ids -> case ids of 
-		[] 		-> return ()
+		[]		-> return env
 		(id:xs) -> do 
 			updateVar env id typ
 			checkStm env (SDecls typ xs)
@@ -132,12 +132,12 @@ checkStm env x = case x of
 		updateVar env id typ
 	SReturn exp -> do
 		inferExp env exp
-		return ()
+		return env
 	SWhile exp stm -> do
 		checkExp env Type_bool exp
 		checkStm env stm
 	SBlock stms -> case stms of
-		[]		-> return ()
+		[]		-> return env
 		stm:xs 	-> do
 			checkStm env stm
 			checkStm env (SBlock xs)
