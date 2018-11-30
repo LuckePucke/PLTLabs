@@ -35,9 +35,9 @@ debug s = do d <- readIORef doDebug
              if d then putStrLn s else return ()
 
 
-listGoodProgs = listCCFiles "good"
+listGoodProgs = listCCFiles "lab2-testsuite/good"
 
-listBadProgs = listCCFiles "bad"
+listBadProgs = listCCFiles "lab2-testsuite/bad"
 
 listCCFiles dir =
     liftM (map (\f -> joinPath [dir,f]) . sort . filter ((==".cc") . takeExtension)) $ listDirectory dir
