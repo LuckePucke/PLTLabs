@@ -158,6 +158,7 @@ checkInt env id = do
 	typ <- lookVar env id
 	case typ of
 		Type_int -> return typ
+		Type_double -> return typ
 		otherwise -> fail $ "checkInt: Variable not an integer."
 
 checkArithmLogic :: Env -> Exp -> Exp -> Err Type
