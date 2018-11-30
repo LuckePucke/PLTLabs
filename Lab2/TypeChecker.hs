@@ -16,14 +16,6 @@ type Sig = Map Id FunType	-- function type signature
 type Context = Map Id Type	-- variables with their types
 data FunType = FunType { funRet :: Type, funPars :: [Type] }
 
-typecheck :: Program -> Err ()
-typecheck (PDefs defs) = do
-	let sig = builtin ++ map mkF defs
-		mkF (DFun typ id args stms) = (id, FunType typ $ 
-			map (\ (ADecl typ _) -> typ) args)
-	
-	checkDefs defs
-
 -- | Builtin-functions
 builtin :: [(Id, FunType)]
 builtin =
@@ -33,17 +25,20 @@ builtin =
   , (Id "printDouble", FunType Type_void [Type_double])
   ]
 
+typecheck :: Program -> Err ()
+typecheck (PDefs defs) = do
+	let sig = builtin ++ map mkF defs
+	checkDefs (Map.fromList sig) defs
+	
+	where
+		mkF (DFun typ id args stms) = (id, FunType typ $ map (\ (ADecl typ _) -> typ) args)
 
---createEnv :: Id -> Type -> Err Env
---createEnv id typ = return [((id, ([], typ)), [])]
-
-checkDefs :: [Def] -> Err ()
-checkDefs [] = return ()
-checkDefs ((DFun typ id args stms):defs) = do
-	env <- createEnv id typ
-	env <- updateArgs env args
-	env <- checkStm env (SBlock stms)
-	return ()
+checkDefs :: Sig -> [Def] -> Err ()
+checkDefs sig [] = return ()
+checkDefs sig ((DFun typ id args stms):defs) = do
+	env <- updateArgs (sig, [(Map.empty)]) args
+	checkStm env (SBlock stms)
+	checkDefs sig defs
 
 lookVar :: Env -> Id -> Err Type
 lookVar (_, []) id = fail $ "lookVar: Id not in Env"
@@ -51,19 +46,21 @@ lookVar (sig, (con:cs)) id = case (Map.lookup id con) of
 	 Just typ	-> return typ
 	 Nothing	-> lookVar (sig, cs) id
 
--- updateArgs :: Env -> [Arg] -> Err Env
--- updateArgs env [] 						= return env
--- updateArgs env ((ADecl typ id):args) 	= updateVar env id typ 
+updateArgs :: Env -> [Arg] -> Err Env
+updateArgs env []						= return env
+updateArgs env ((ADecl typ id):args)	= updateVar env id typ 
 
 updateVar :: Env -> Id -> Type -> Err Env
-updateVar (sig, cs) id typ = return (sig, (updateVar' cs id typ))
+updateVar env@(sig, (c:cs)) id typ = case (updateVar' env id) of
+	Just typ	-> return env
+	Just _		-> fail $ "updateVar: Variable already defined with different type."
+	Nothing		-> return (sig, ((Map.insert id typ c):cs))
 
-updateVar' :: [Context] -> Id -> Type -> [Context]
-updateVar' [] id typ 		= [(id, typ)]
-updateVar' (c:cs) id typ 	= case c of 
-	(id, typ)	-> (c:cs)
-	(id, _)		-> fail $ "updateVar. Id has a different Type"
-	_			-> [c]++(updateVar' cs id typ)
+updateVar' :: Env -> Id -> Maybe Type
+updateVar' (_, []) id = Nothing
+updateVar' (sig, (con:cs)) id = case (Map.lookup id con) of
+	 Just typ	-> Just typ
+	 Nothing	-> updateVar' (sig, cs) id
 
 
 checkExp :: Env -> Type -> Exp -> Err Env
@@ -121,13 +118,13 @@ inferArithm env a b = do
 		fail $ "inferArithm: type of expression " -- ++ printTree exp
 
 
-checkStm :: Env -> Stm -> Err Env
+checkStm :: Env -> Stm -> Err ()
 checkStm env x = case x of
 	SExp exp -> do
 		inferExp env exp
-		return env
+		return ()
 	SDecls typ ids -> case ids of 
-		[] 		-> return env
+		[] 		-> return ()
 		(id:xs) -> do 
 			updateVar env id typ
 			checkStm env (SDecls typ xs)
@@ -135,12 +132,12 @@ checkStm env x = case x of
 		updateVar env id typ
 	SReturn exp -> do
 		inferExp env exp
-		return env
+		return ()
 	SWhile exp stm -> do
 		checkExp env Type_bool exp
 		checkStm env stm
 	SBlock stms -> case stms of
-		[]		-> return env
+		[]		-> return ()
 		stm:xs 	-> do
 			checkStm env stm
 			checkStm env (SBlock xs)
