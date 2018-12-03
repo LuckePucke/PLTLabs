@@ -45,11 +45,13 @@ lookVar (sig, c:cs) id = case (Map.lookup id c) of
 	Nothing -> lookVar (sig, cs) id
 
 updateVar :: Env -> Id -> Val -> Env
-updateVar (sig, (c:cs)) id val = case (Map.lookup id c) of
-	Just a	-> (sig, ((Map.insert id val c):cs))
-	Nothing -> do
-		let (sig0, cs0) = updateVar (sig, cs) id val
-		(sig0, (c:cs0))
+updateVar (sig, cs) id val = (sig, updateVar' cs id val)
+
+updateVar' :: [Context] -> Id -> Val -> [Context]
+updateVar' [] id val = []
+updateVar' (c:cs) id val = case (Map.lookup id c) of
+	Just a	-> (Map.adjust (const val) id c):cs
+	Nothing -> c : (updateVar' cs id val)
 
 killContext :: Env -> Env
 killContext (sig, (c:cs)) = (sig, cs)
@@ -85,7 +87,7 @@ evalStms env val True (stm:stms)	= case stm of
 	SExp exp -> do
 		(env0, val0) <- evalExp env exp
 		evalStms env0 val True stms
-	SDecls typ ids -> evalStms (newVar env (head ids) VVoid) val True stms
+	SDecls typ ids -> evalStms (decls env ids) val True stms
 	SInit typ id exp -> do
 		(env0, val0)	<- evalExp env exp
 		let env1		= newVar env0 id val0
@@ -113,6 +115,10 @@ evalStms env val True (stm:stms)	= case stm of
 			VBool False	-> do
 				(bool, (env1, val0)) <- evalStms (newContext env0) val True [stm1]
 				evalStms (killContext env1) val0 bool stms
+
+decls :: Env -> [Id] -> Env
+decls env [] = env
+decls env (id:ids) = decls (newVar env id VVoid) ids
 
 evalExp :: Env -> Exp -> IO Eval
 evalExp env exp = case exp of
