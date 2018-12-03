@@ -107,7 +107,7 @@ evalStms env val True (stm:stms)	= case stm of
 		(env0, cond) <- evalExp env exp
 		case cond of
 			VBool True -> do
-				(bool, (env1, val0)) <- evalStms env0 val True [stm0]
+				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm0])]
 				evalStms env1 val0 bool (stm:stms)
 			VBool False -> evalStms env0 val True stms
 	SBlock stms0 -> do
@@ -118,10 +118,10 @@ evalStms env val True (stm:stms)	= case stm of
 		(env0, cond) <- evalExp env exp
 		case cond of
 			VBool True	-> do
-				(bool, (env1, val0)) <- evalStms env0 val True [stm0]
+				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm0])]
 				evalStms env1 val0 bool stms
 			VBool False	-> do
-				(bool, (env1, val0)) <- evalStms env0 val True [stm1]
+				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm1])]
 				evalStms env1 val0 bool stms
 
 {-
