@@ -113,14 +113,14 @@ evalStms env val True (stm:stms)	= case stm of
 	SBlock stms0 -> do
 		let env0 = newContext env
 		(bool, (env1, val0)) <- evalStms env0 val True stms0
-		evalStms env1 val0 bool stms
+		evalStms (killContext env1) val0 bool stms
 	SIfElse exp stm0 stm1 -> do
 		(env0, cond) <- evalExp env exp
 		case cond of
 			VBool True	-> do
 				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm0])]
 				evalStms env1 val0 bool stms
-			VBool False	-> do
+			_	-> do
 				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm1])]
 				evalStms env1 val0 bool stms
 
@@ -138,12 +138,12 @@ evalExp env exp = case exp of
 			let exp = head exps
 			(env0, (VInt i)) <- evalExp env exp
 			putStrLn (show i)
-			return (env0, VVoid)
+			return (env0, VInt i)
 		(Id "printDouble") -> do
 			let exp = head exps
 			(env0, (VDouble d)) <- evalExp env exp
 			putStrLn (show d)
-			return (env0, VVoid)
+			return (env0, VDouble d)
 		(Id "readInt") -> do
 			inp <- getLine
 			return (env, VInt (read inp :: Integer))
@@ -224,24 +224,18 @@ evalExp env exp = case exp of
 	EAnd exp0 exp1	-> do
 		(env0, val0) <- evalExp env exp0
 		case val0 of
-			VBool True -> do
-				(env1, val1) <- evalExp env0 exp1
-				case (val0, val1) of
-					(VBool b0, VBool b1) -> return (env1, VBool (b0 && b1))
-			VBool False -> return (env0, VBool False)
+			(VBool True)	-> evalExp env0 exp1
+			_				-> return (env0, val0)
 	
 	EOr exp0 exp1	-> do
 		(env0, val0) <- evalExp env exp0
 		case val0 of
-			VBool False -> do
-				(env1, val1) <- evalExp env0 exp1
-				case (val0, val1) of
-					(VBool b0, VBool b1) -> return (env1, VBool (b0 || b1))
-			VBool True -> return (env0, VBool True)
+			VBool False	-> evalExp env0 exp1
+			_			-> return (env0, val0)
 	
 	EAss id exp -> do
 		(env0, val) <- evalExp env exp
-		return (updateVar env0 id val, VVoid)
+		return (updateVar env0 id val, val)
 
 
 incrVal :: Env -> Id -> Val
