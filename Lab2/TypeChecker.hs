@@ -46,7 +46,7 @@ checkDefs :: Sig -> [Def] -> Err ()
 checkDefs sig [] = return ()
 checkDefs sig ((DFun typ id args stms):defs) = do
 	env <- newArgs (sig, [(Map.empty)]) args
-	checkStm env typ (SBlock stms)
+	checkStms env typ stms
 	checkDefs sig defs
 
 lookFun :: Env -> Id -> [Exp] -> Err Type
@@ -95,7 +95,7 @@ newArgs env ((ADecl typ id):args)	= do
 newVar :: Env -> Id -> Type -> Err Env
 newVar env id Type_void = fail $ "newVar: Variables can't have type void."
 newVar env@(sig, (c:cs)) id typ = do
-	newVar' (c:cs) id
+--	newVar' (c:cs) id
 	case (Map.lookup id c) of
 		Nothing	-> return (sig, ((Map.insert id typ c):cs))
 		Just _	-> fail $ "newVar: Variable already defined."
@@ -139,8 +139,8 @@ inferExp env x = case x of
 	EGt exp0 exp1	-> checkArithmLogic env exp0 exp1
 	ELtEq exp0 exp1	-> checkArithmLogic env exp0 exp1
 	EGtEq exp0 exp1	-> checkArithmLogic env exp0 exp1
-	EEq exp0 exp1	-> checkArithmLogic env exp0 exp1
-	ENEq exp0 exp1	-> checkArithmLogic env exp0 exp1
+	EEq exp0 exp1	-> checkEq env exp0 exp1
+	ENEq exp0 exp1	-> checkEq env exp0 exp1
 	
 	EAnd exp0 exp1	-> checkBoolLogic env exp0 exp1
 	EOr exp0 exp1	-> checkBoolLogic env exp0 exp1
@@ -161,6 +161,15 @@ checkNum env id = do
 		Type_double -> return typ
 		otherwise -> fail $ "checkNum: Variable not an integer."
 
+checkEq :: Env -> Exp -> Exp -> Err Type
+checkEq env exp0 exp1 = do
+	typ0 <- inferExp env exp0
+	typ1 <- inferExp env exp1
+	if (elem typ0 [Type_int, Type_double, Type_bool]) && (typ0 == typ1) then
+		return Type_bool
+	else
+		fail $ "checkEq: Not same type." -- ++ printTree exp
+
 checkArithmLogic :: Env -> Exp -> Exp -> Err Type
 checkArithmLogic env exp0 exp1 = do
 	typ <- inferArithm env exp0 exp1
@@ -168,9 +177,9 @@ checkArithmLogic env exp0 exp1 = do
 
 checkBoolLogic :: Env -> Exp -> Exp -> Err Type
 checkBoolLogic env exp0 exp1 = do
-	typ 	<- inferExp env exp0
-	typ2 	<- inferExp env exp1
-	if (typ == Type_bool) && (typ2 == Type_bool) then
+	typ0	<- inferExp env exp0
+	typ1	<- inferExp env exp1
+	if (typ0 == Type_bool) && (typ1 == Type_bool) then
 		return Type_bool
 	else
 		fail $ "CheckBoolLogic: Both not bool." -- ++ printTree exp
@@ -180,13 +189,18 @@ checkBoolLogic env exp0 exp1 = do
 -- inferArithmBin i boken.
 inferArithm :: Env -> Exp -> Exp -> Err Type
 inferArithm env a b = do
-	typ 	<- inferExp env a
-	typ2 	<- inferExp env b
-	if (elem typ [Type_int, Type_double]) && (typ == typ2) then
-		return typ
+	typ0	<- inferExp env a
+	typ1	<- inferExp env b
+	if (elem typ0 [Type_int, Type_double]) && (typ0 == typ1) then
+		return typ0
 	else
 		fail $ "inferArithm: Not same type of numeric." -- ++ printTree exp
 
+checkStms :: Env -> Type -> [Stm] -> Err Env
+checkStms env typ [] = return env
+checkStms env typ (stm:stms) = do
+	env0 <- checkStm env typ stm
+	checkStms env0 typ stms
 
 checkStm :: Env -> Type -> Stm -> Err Env
 checkStm env@(sig, (c:cs)) ret x = case x of
