@@ -124,41 +124,6 @@ evalStms env val True (stm:stms)	= case stm of
 				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm1])]
 				evalStms env1 val0 bool stms
 
-{-
-evalStms env [] = return ((killContext env), VVoid)
-evalStms env (stm:stms) = do
-	(env0, val) <- evalStm env stm
-	evalStms env0 stms
-
-evalStm :: Env -> Stm -> IO Eval
-evalStm env stm = case stm of
-	SExp exp -> do
-		evalExp env exp
-	SDecls typ ids -> case ids of 
-		[]		-> return (env, VVoid)
-		(id:xs) -> do 
-			let env0 = newVar env id VVoid
-			evalStm env0 (SDecls typ xs)
-	SInit typ id exp -> do
-		(env0, val) <- evalExp env exp
-		return (newVar env0 id val, VVoid)
-	SReturn exp -> do
-		(env0, val) <- evalExp env exp
-		return (env0, val)
-	SWhile exp stm -> do
-		(env0, bool) <- evalExp env exp
-		case bool of
-			VBool True -> evalStm env0 stm
-			VBool False -> return (env0, VVoid)
-	SBlock stms -> do
-		let env0 = newContext env
-		evalStms env0 stms
-	SIfElse exp stm0 stm1 -> do
-		(env0, bool) <- evalExp env exp
-		case bool of
-			VBool True	-> evalStm env0 stm0
-			VBool False	-> evalStm env0 stm1
--}
 evalExp :: Env -> Exp -> IO Eval
 evalExp env exp = case exp of
 	ETrue 	-> return (env, VBool True)
@@ -258,14 +223,21 @@ evalExp env exp = case exp of
 	
 	EAnd exp0 exp1	-> do
 		(env0, val0) <- evalExp env exp0
-		(env1, val1) <- evalExp env0 exp1
-		case (val0, val1) of
-			(VBool b0, VBool b1) -> return (env1, VBool (b0 && b1))
+		case val0 of
+			VBool True -> do
+				(env1, val1) <- evalExp env0 exp1
+				case (val0, val1) of
+					(VBool b0, VBool b1) -> return (env1, VBool (b0 && b1))
+			VBool False -> return (env0, VBool False)
+	
 	EOr exp0 exp1	-> do
 		(env0, val0) <- evalExp env exp0
-		(env1, val1) <- evalExp env0 exp1
-		case (val0, val1) of
-			(VBool b0, VBool b1) -> return (env1, VBool (b0 || b1))
+		case val0 of
+			VBool False -> do
+				(env1, val1) <- evalExp env0 exp1
+				case (val0, val1) of
+					(VBool b0, VBool b1) -> return (env1, VBool (b0 || b1))
+			VBool True -> return (env0, VBool True)
 	
 	EAss id exp -> do
 		(env0, val) <- evalExp env exp
