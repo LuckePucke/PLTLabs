@@ -21,9 +21,6 @@ data Val
 	| VDouble	Double
 	| VVoid
 
-printWithIO :: String -> IO ()
-printWithIO s = putStrLn s
-
 interpret :: Program -> IO ()
 interpret (PDefs defs) = do
 	let sig = newDefs Map.empty defs
@@ -67,9 +64,9 @@ updateContext c (id:ids) (val:vals)
 
 execMain :: Env -> [Stm] -> IO ()
 execMain env [] = putStr ""
-execMain env (stm:stms) = do
-	(env0, val) <- evalStm env stm
-	execMain env0 stms
+execMain env stms = do
+	_ <- evalStms env VVoid True stms
+	return ()
 
 execFun :: Env -> Id -> [Exp] -> IO Eval
 execFun env id exps = do
@@ -79,13 +76,55 @@ execFun env id exps = do
 			execFun' env0 exps args stms
 
 execFun' :: Env -> [Exp] -> [Id] -> [Stm] -> IO Eval
-execFun' env [] [] stms = evalStms env stms
+execFun' env [] [] stms = do
+	(_, eval) <- evalStms env VVoid True stms
+	return eval
 execFun' (sig, c:cs) (exp:exps) (id:ids) stms = do
 	((sig0, cs0), val)	<- evalExp (sig, cs) exp
 	let c0				= Map.insert id val c
 	execFun' (sig0, (c0:cs0)) exps ids stms
 
-evalStms :: Env -> [Stm] -> IO Eval
+evalStms :: Env -> Val -> Bool -> [Stm] -> IO (Bool, Eval)
+evalStms env val bool []			= return (bool, (env, val))
+evalStms env val False stms			= return (False, (env, val))
+evalStms env val True (stm:stms)	= case stm of
+	SExp exp -> do
+		(env0, val0) <- evalExp env exp
+		evalStms env0 val True stms
+	SDecls typ ids -> case ids of 
+		[]		-> evalStms env val True stms
+		(id:xs) -> do 
+			let env0 = newVar env id VVoid
+			evalStms env0 val True [(SDecls typ xs)]
+	SInit typ id exp -> do
+		(env0, val0)	<- evalExp env exp
+		let env1		= newVar env0 id val0
+		evalStms env1 val True stms
+	SReturn exp -> do
+		(env0, val0) <- evalExp env exp
+		evalStms env0 val0 False stms
+	SWhile exp stm0 -> do
+		(env0, cond) <- evalExp env exp
+		case cond of
+			VBool True -> do
+				(bool, (env1, val0)) <- evalStms env0 val True [stm0]
+				evalStms env1 val0 bool (stm:stms)
+			VBool False -> evalStms env0 val True stms
+	SBlock stms0 -> do
+		let env0 = newContext env
+		(bool, (env1, val0)) <- evalStms env0 val True stms0
+		evalStms env1 val0 bool stms
+	SIfElse exp stm0 stm1 -> do
+		(env0, cond) <- evalExp env exp
+		case cond of
+			VBool True	-> do
+				(bool, (env1, val0)) <- evalStms env0 val True [stm0]
+				evalStms env1 val0 bool stms
+			VBool False	-> do
+				(bool, (env1, val0)) <- evalStms env0 val True [stm1]
+				evalStms env1 val0 bool stms
+
+{-
 evalStms env [] = return ((killContext env), VVoid)
 evalStms env (stm:stms) = do
 	(env0, val) <- evalStm env stm
@@ -119,7 +158,7 @@ evalStm env stm = case stm of
 		case bool of
 			VBool True	-> evalStm env0 stm0
 			VBool False	-> evalStm env0 stm1
-
+-}
 evalExp :: Env -> Exp -> IO Eval
 evalExp env exp = case exp of
 	ETrue 	-> return (env, VBool True)
