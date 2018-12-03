@@ -57,11 +57,6 @@ killContext (sig, (c:cs)) = (sig, cs)
 newContext :: Env -> Env
 newContext (sig, cs) = (sig, (Map.empty:cs))
 
-updateContext :: Context -> [Id] -> [Val] -> Context
-updateContext c [] [] = c
-updateContext c (id:ids) (val:vals)
-	= updateContext (Map.insert id val c) ids vals
-
 execMain :: Env -> [Stm] -> IO ()
 execMain env [] = putStr ""
 execMain env stms = do
@@ -224,7 +219,7 @@ evalExp env exp = case exp of
 	EAnd exp0 exp1	-> do
 		(env0, val0) <- evalExp env exp0
 		case val0 of
-			(VBool True)	-> evalExp env0 exp1
+			VBool True	-> evalExp env0 exp1
 			_				-> return (env0, val0)
 	
 	EOr exp0 exp1	-> do
