@@ -81,8 +81,7 @@ execFun' env [] [] stms = do
 	return ((killContext env0), val)
 execFun' (sig, c:cs) (exp:exps) (id:ids) stms = do
 	((sig0, cs0), val)	<- evalExp (sig, cs) exp
-	let c0				= Map.insert id val c
-	execFun' (sig0, (c0:cs0)) exps ids stms
+	execFun' (sig0, ((Map.insert id val c):cs0)) exps ids stms
 
 evalStms :: Env -> Val -> Bool -> [Stm] -> IO (Bool, Eval)
 evalStms env val bool []			= return (bool, (env, val))
@@ -107,8 +106,8 @@ evalStms env val True (stm:stms)	= case stm of
 		(env0, cond) <- evalExp env exp
 		case cond of
 			VBool True -> do
-				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm0])]
-				evalStms env1 val0 bool (stm:stms)
+				(bool, (env1, val0)) <- evalStms (newContext env0) val True [stm0]
+				evalStms (killContext env1) val0 bool (stm:stms)
 			VBool False -> evalStms env0 val True stms
 	SBlock stms0 -> do
 		let env0 = newContext env
@@ -118,11 +117,11 @@ evalStms env val True (stm:stms)	= case stm of
 		(env0, cond) <- evalExp env exp
 		case cond of
 			VBool True	-> do
-				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm0])]
-				evalStms env1 val0 bool stms
-			_	-> do
-				(bool, (env1, val0)) <- evalStms env0 val True [(SBlock [stm1])]
-				evalStms env1 val0 bool stms
+				(bool, (env1, val0)) <- evalStms (newContext env0) val True [stm0]
+				evalStms (killContext env1) val0 bool stms
+			VBool False	-> do
+				(bool, (env1, val0)) <- evalStms (newContext env0) val True [stm1]
+				evalStms (killContext env1) val0 bool stms
 
 evalExp :: Env -> Exp -> IO Eval
 evalExp env exp = case exp of
@@ -135,13 +134,13 @@ evalExp env exp = case exp of
 	EId id			-> return (env, (lookVar env id))
 	EApp id exps	-> case id of
 		(Id "printInt") -> do
-			let exp = head exps
-			(env0, (VInt i)) <- evalExp env exp
+			let exp0 = head exps
+			(env0, (VInt i)) <- evalExp env exp0
 			putStrLn (show i)
 			return (env0, VInt i)
 		(Id "printDouble") -> do
-			let exp = head exps
-			(env0, (VDouble d)) <- evalExp env exp
+			let exp0 = head exps
+			(env0, (VDouble d)) <- evalExp env exp0
 			putStrLn (show d)
 			return (env0, VDouble d)
 		(Id "readInt") -> do
@@ -224,17 +223,17 @@ evalExp env exp = case exp of
 	EAnd exp0 exp1	-> do
 		(env0, val0) <- evalExp env exp0
 		case val0 of
-			(VBool True)	-> evalExp env0 exp1
-			_				-> return (env0, val0)
+			VBool False	-> return (env0, val0)
+			VBool True	-> evalExp env0 exp1
 	
 	EOr exp0 exp1	-> do
 		(env0, val0) <- evalExp env exp0
 		case val0 of
+			VBool True	-> return (env0, val0)
 			VBool False	-> evalExp env0 exp1
-			_			-> return (env0, val0)
 	
-	EAss id exp -> do
-		(env0, val) <- evalExp env exp
+	EAss id exp0 -> do
+		(env0, val) <- evalExp env exp0
 		return (updateVar env0 id val, val)
 
 
