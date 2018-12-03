@@ -15,6 +15,9 @@ CPP/Lex.hs: CPP/Lex.x
 CPP/Test: CPP/Test.hs CPP/Par.hs CPP/Lex.hs
 	ghc --make $< -o $@
 
+testfile: lab2
+	./lab2 testfile.cc
+
 test: lab2 lab2-testsuite/progs-test-lab2
 	./lab2-testsuite/progs-test-lab2 .
 
