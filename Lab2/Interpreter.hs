@@ -77,8 +77,8 @@ execFun env id exps = do
 
 execFun' :: Env -> [Exp] -> [Id] -> [Stm] -> IO Eval
 execFun' env [] [] stms = do
-	(_, eval) <- evalStms env VVoid True stms
-	return eval
+	(_, (env0, val)) <- evalStms env VVoid True stms
+	return ((killContext env0), val)
 execFun' (sig, c:cs) (exp:exps) (id:ids) stms = do
 	((sig0, cs0), val)	<- evalExp (sig, cs) exp
 	let c0				= Map.insert id val c
