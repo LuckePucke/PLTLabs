@@ -85,11 +85,7 @@ evalStms env val True (stm:stms)	= case stm of
 	SExp exp -> do
 		(env0, val0) <- evalExp env exp
 		evalStms env0 val True stms
-	SDecls typ ids -> case ids of 
-		[]		-> evalStms env val True stms
-		(id:xs) -> do 
-			let env0 = newVar env id VVoid
-			evalStms env0 val True [(SDecls typ xs)]
+	SDecls typ ids -> evalStms (newVar env (head ids) VVoid) val True stms
 	SInit typ id exp -> do
 		(env0, val0)	<- evalExp env exp
 		let env1		= newVar env0 id val0
