@@ -125,10 +125,10 @@ inferExp env x = case x of
 	EId id			-> lookVar env id
 	EApp id exps	-> lookFun env id exps
 	
-	EPostIncr id	-> checkInt env id
-	EPostDecr id	-> checkInt env id
-	EPreIncr id		-> checkInt env id
-	EPreDecr id		-> checkInt env id
+	EPostIncr id	-> checkNum env id
+	EPostDecr id	-> checkNum env id
+	EPreIncr id		-> checkNum env id
+	EPreDecr id		-> checkNum env id
 	
 	ETimes exp0 exp1	-> inferArithm env exp0 exp1
 	EDiv exp0 exp1		-> inferArithm env exp0 exp1
@@ -153,13 +153,13 @@ inferExp env x = case x of
 		else
 			fail $ "inferExp: Trying to assign wrong type to variable."
 
-checkInt :: Env -> Id -> Err Type
-checkInt env id = do
+checkNum :: Env -> Id -> Err Type
+checkNum env id = do
 	typ <- lookVar env id
 	case typ of
 		Type_int -> return typ
 		Type_double -> return typ
-		otherwise -> fail $ "checkInt: Variable not an integer."
+		otherwise -> fail $ "checkNum: Variable not an integer."
 
 checkArithmLogic :: Env -> Exp -> Exp -> Err Type
 checkArithmLogic env exp0 exp1 = do
