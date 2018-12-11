@@ -1,6 +1,6 @@
 all:
 	bnfc --haskell CPP.cf
-	happy -gca ParCPP.y
+	happy -i -gca ParCPP.y
 	alex -g LexCPP.x
 	ghc --make TestCPP.hs -o TestCPP
 
