@@ -14,6 +14,21 @@ import TypeChecker
 type Sig = Map Id Fun			-- function type signature
 data Fun = Fun { funId :: Id, funType FunType } 
 
+newtype Label = L Int
+	deriving (Eq, Enum, Show)
+
+data St = St
+  { cxt           :: Context	-- Context.
+  , limitLocals   :: Int		-- Maximal size for locals encountered.
+  , currentStack  :: Int		-- Current stack size.
+  , limitStack    :: Int		-- Maximal stack size encountered.
+  , nextLabel     :: Label		-- Next jump label (persistent part of state)
+  }
+
+type Output = [String]
+
+type Compile = RWS Env Output St
+
 builtin = [
 		((Id "printInt"), (Fun (Id "Runtime/printInt") (VVoid [VInt]))),
 		((Id "readInt"), (Fun (Id "Runtime/readInt") (VInt [])))
