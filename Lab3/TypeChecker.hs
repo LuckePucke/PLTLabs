@@ -15,6 +15,7 @@ type Env = (Sig, [Context])	-- functions and context stack
 type Sig = Map Id FunType	-- function type signature
 type Context = Map Id Type	-- variables with their types
 data FunType = FunType { funRet :: Type, funPars :: [Type] }
+	deriving (Show)
 
 -- | Builtin-functions
 builtin :: [(Id, FunType)]

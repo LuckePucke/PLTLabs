@@ -2,23 +2,43 @@
 module Compiler where
 
 import Annotated
-import CPP.Abs
-import CPP.Print
-import CPP.ErrM
-import TypeChecker
+import CPP.Abs (Id(..), Type(..), Arg(..))
+-- import CPP.Print
+-- import CPP.ErrM
+import TypeChecker (FunType(..))
+
+import Control.Monad.RWS
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 -- type Env = (Sig, [Context])	-- functions and context stack
 -- type Context = Map Id Type	-- variables with their types
 -- data FunDef = FunDef { funArgs :: [Id], funStms :: [Stm] }
 -- data FunType = FunType { funRet :: Type, funPars :: [Type] }
+type Cxt = [Block]
+type Block = [(Id, Type)]
 type Sig = Map Id Fun			-- function type signature
-data Fun = Fun { funId :: Id, funType FunType } 
+data Fun = Fun { funId :: Id, funType :: FunType } 
+instance Show Fun where
+	show fun = case (funRet (funType fun)) of
+		Type_void	-> (show (funId fun)) ++ "(" ++ pars ++ ")V"
+		Type_bool	-> (show (funId fun)) ++ "(" ++ pars ++ ")Z"
+		Type_int	-> (show (funId fun)) ++ "(" ++ pars ++ ")I"
+		where
+		pars = showPars $ funPars (funType fun)
 
-newtype Label = L Int
-	deriving (Eq, Enum, Show)
+showPars :: [Type] -> String
+showPars [] = ""
+showPars (t:ts) = case t of
+	Type_void	-> "V" ++ showPars ts
+	Type_bool	-> "Z" ++ showPars ts
+	Type_int	-> "I" ++ showPars ts
+
+newtype Label = L { theLabel :: Int }
+	deriving (Eq, Show)
 
 data St = St
-	{ cxt			:: Context	-- Context.
+	{ cxt			:: Cxt		-- Context.
 	, limitLocals	:: Int		-- Maximal size for locals encountered.
 	, currentStack	:: Int		-- Current stack size.
 	, limitStack	:: Int		-- Maximal stack size encountered.
@@ -28,72 +48,69 @@ data St = St
 initSt :: St
 initSt = St
 	{ cxt = [[]]
-	, limitLocals	 = 0
+	, limitLocals	= 0
 	, currentStack	= 0
-	, limitStack		= 0
-	, nextLabel		 = L 0
+	, limitStack	= 0
+	, nextLabel		= L 0
 	}
 
 type Output = [String]
 
-type Compile = RWS Env Output St
+type Compile = RWS Sig Output St
 
 type Addr = Int
 
 
 builtin :: [(Id, Fun)]
-builtin = [
-		((Id "printInt"), (Fun (Id "Runtime/printInt") (VVoid [VInt]))),
-		((Id "readInt"), (Fun (Id "Runtime/readInt") (VInt [])))
-	]
+builtin =
+  [ (Id "printInt",	Fun (Id "Runtime/printInt")	$ FunType Type_void [Type_int])
+  , (Id "readInt",	Fun (Id "Runtime/readInt")	$ FunType Type_void [])
+  ]
 
-compile
-	:: String	-- Class name.
-	-> Program	-- Type-annotated program.
-	-> String	-- Generated jasmin source file content.
-compile str prg = unlines w
+compile :: String -> Program -> String
+compile name prg@(PDefs defs) = unlines w
 	where
-	sigEntry def@(DFun _ f@(Id x) _ _ ) = (f, Fun (Id $ name ++ "/" ++ x) $ funType def)
+	sigEntry def@(DFun _ f@(Id x) _ _ ) = (f, Fun (Id $ name ++ "/" ++ x) $ defToFunType def)
 	sig = Map.fromList $ builtin ++ map sigEntry defs
 	w	 = snd $ evalRWS (compile' name prg) sig initSt
 
 compile' :: String -> Program -> Compile ()
-compile' str prg@(PDefs defs) = do
+compile' name prg@(PDefs defs) = do
 	tell header
 	mapM_ compileFun defs
 	where
 	header = [
-	";; BEGIN HEADER"
-	, ""
-	, ".class public " ++ name
-	, ".super java/lang/Object"
-	, ""
-	, ".method public <init>()V"
-	, "	.limit locals 1"
-	, ""
-	, "	aload_0"
-	, "	invokespecial java/lang/Object/<init>()V"
-	, "	return"
-	, ""
-	, ".end method"
-	, ""
-	, ".method public static main([Ljava/lang/String;)V"
-	, "	.limit locals 1"
-	, "	.limit stack	1"
-	, ""
-	, "	invokestatic " ++ name ++ "/main()I"
-	, "	pop"
-	, "	return"
-	, ""
-	, ".end method"
-	, ""
-	, ";; END HEADER"
-	]
+		";; BEGIN HEADER"
+		, ""
+		, ".class public " ++ name
+		, ".super java/lang/Object"
+		, ""
+		, ".method public <init>()V"
+		, " .limit locals 1"
+		, ""
+		, " aload_0"
+		, " invokespecial java/lang/Object/<init>()V"
+		, " return"
+		, ""
+		, ".end method"
+		, ""
+		, ".method public static main([Ljava/lang/String;)V"
+		, " .limit locals 1"
+		, " .limit stack 1"
+		, ""
+		, " invokestatic " ++ name ++ "/main()I"
+		, " pop"
+		, " return"
+		, ""
+		, ".end method"
+		, ""
+		, ";; END HEADER"
+		]
 
-compileFun :: [Def] -> String
+compileFun :: Def -> Compile ()
 compileFun def@(DFun typ id args stms) = do
 	-- function header
-	tell [ "", ".method public static " ++ toJVM (Fun id $ funType def) ]
+	tell [ "", ".method public static " ++ show (Fun id $ defToFunType def) ]
 
 	-- prepare environment
 	lab <- gets nextLabel
@@ -107,11 +124,11 @@ compileFun def@(DFun typ id args stms) = do
 	-- output limits
 	ll <- gets limitLocals
 	ls <- gets limitStack
-	tell	[ ".limit locals " ++ show ll
-			, ".limit stack " ++ show ls ]
+	tell	[ " .limit locals " ++ show ll
+			, " .limit stack " ++ show ls ]
 
-	-- output code, indented by 2
-	tell $ map (\ s -> if null s then s else "	" ++ s) w
+	-- output code, indented by 1
+	tell $ map (\ s -> if null s then s else " " ++ s) w
 
 	-- function footer
 	tell [ "", ".end method"]
@@ -124,7 +141,7 @@ compileStm s = do
 	let top = stmTop s
 	unless (null top) $ do
 		tell $ map (";; " ++) $ lines top
-		case s of SDecls{} -> return(); _ -> blank
+--		case s of SDecls{} -> return(); _ -> blank
 
 	-- message for NYI
 	let nyi = error $ "TODO: " ++ top
@@ -150,7 +167,7 @@ compileStm s = do
 
 		SWhile e s1 -> do
 			start <- newLabel
-			done	<- newLabel
+			done <- newLabel
 			emit $ Label start
 			compileExp e
 			emit $ IfZ done
@@ -212,7 +229,7 @@ data Code
 
 	| IConst Integer	-- ^ Put integer constant on the stack.
 	| Pop Type			-- ^ Pop something of type @Type@ from the stack.
-	| Return Typ		-- ^ Return from method of type @Type@.
+	| Return Type		-- ^ Return from method of type @Type@.
 	| Add Type			-- ^ Add 2 top values of stack.
 
 	| Call Fun			-- ^ Call function.
@@ -227,7 +244,7 @@ data Code
 stmTop :: Stm -> String
 stmTop stm = case stm of
 	SWhile e _		-> "while (" ++ printTree e ++ ")"
-	SIFElse e _ _	-> "if (" ++ printTree e ++ ")"
+	SIfElse e _ _	-> "if (" ++ printTree e ++ ")"
 	SBlock _		-> ""
 	_ 				-> printTree stm
 
@@ -240,10 +257,11 @@ newLabel = do
 grabOutput :: Compile () -> Compile Output
 grabOutput m = do
 	r <- ask
-	s	<- get
+	s <- get
 	let ((), s', w) = runRWS m r s
 	put s'
 	return w
+
 
 -- defToIdFun :: Def -> (Id, Fun)
 -- defToIdFun (DFun typ id args stms) = Fun ((Id id), (FunType (typ, (map (\(ADecl atyp aid) -> atyp) args))))
@@ -252,5 +270,5 @@ grabOutput m = do
 -- newFuns sig [] = sig
 -- newFuns sig ((id, fun):idfuns) = newFuns (Map.insert id fun sig) idfuns
 
-funType :: Def -> FunType
-funType (DFun t _ args _) = FunType t $ map (\ (ADecl t' _) -> t') args
+defToFunType :: Def -> FunType
+defToFunType (DFun t _ args _) = FunType t $ map (\ (ADecl t' _) -> t') args
