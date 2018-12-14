@@ -8,6 +8,7 @@ import CPP.Abs (Id(..), Type(..), Arg(..))
 import TypeChecker (FunType(..))
 
 import Control.Monad.RWS
+import Data.Maybe
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -16,7 +17,7 @@ import qualified Data.Map as Map
 -- data FunDef = FunDef { funArgs :: [Id], funStms :: [Stm] }
 -- data FunType = FunType { funRet :: Type, funPars :: [Type] }
 type Cxt = [Block]
-type Block = [(Id, Type)]
+type Block = Map Id (Type, Addr)
 type Sig = Map Id Fun			-- function type signature
 data Fun = Fun { funId :: Id, funType :: FunType } 
 instance Show Fun where
@@ -35,7 +36,9 @@ showPars (t:ts) = case t of
 	Type_int	-> "I" ++ showPars ts
 
 newtype Label = L { theLabel :: Int }
-	deriving (Eq, Show)
+	deriving (Eq)
+instance Show Label where
+	show (L i) = "L" ++ show i
 
 data St = St
 	{ cxt			:: Cxt		-- Context.
@@ -47,7 +50,7 @@ data St = St
 
 initSt :: St
 initSt = St
-	{ cxt = [[]]
+	{ cxt = [Map.empty]
 	, limitLocals	= 0
 	, currentStack	= 0
 	, limitStack	= 0
@@ -140,7 +143,8 @@ compileStm s = do
 	-- Printing a comment
 	let top = stmTop s
 	unless (null top) $ do
-		tell $ map (";; " ++) $ lines top
+		tell [";; " ++ top]
+--		tell $ map (";; " ++) $ lines top
 --		case s of SDecls{} -> return(); _ -> blank
 
 	-- message for NYI
@@ -151,7 +155,7 @@ compileStm s = do
 		SInit t x e -> do
 			compileExp e
 			newVar x t
-			(a, _) <- lookupVar x
+			(_, a) <- lookupVar x
 			emit $ Store t a
 
 		SExp t e -> do
@@ -163,7 +167,9 @@ compileStm s = do
 			emit $ Return t
 
 		SBlock ss -> do
-			inNewBlock $ mapM_ compileStm ss
+			enterBlock
+			mapM_ compileStm ss
+			exitBlock
 
 		SWhile e s1 -> do
 			start <- newLabel
@@ -171,7 +177,9 @@ compileStm s = do
 			emit $ Label start
 			compileExp e
 			emit $ IfZ done
-			inNewBlock $ compileStm s1
+			enterBlock
+			compileStm s1
+			exitBlock
 			emit $ Goto start
 			emit $ Label done
 
@@ -184,7 +192,7 @@ compileExp e = case e of
 		emit $ IConst i
 	
 	EId x -> do
-		(a, t) <- lookupVar x
+		(t, a) <- lookupVar x
 		emit $ Load t a
 	
 	EApp f es -> do
@@ -212,7 +220,7 @@ compileExp e = case e of
 	
 	EAss x e1 -> do
 		compileExp e1
-		(a, t) <- lookupVar x
+		(t, a) <- lookupVar x
 		emit $ Store t a
 		emit $ Load t a
 	
@@ -221,7 +229,22 @@ compileExp e = case e of
 -- | Print a single instruction.	Also update stack limits
 -- om vi ska updatera stacken, måste vi inte ta in den i nån form av input då? 
 emit :: Code -> Compile ()
-emit = error $ "TODO: emit"
+emit code = case code of
+	Store typ addr	-> tell ["istore_" ++ show addr]
+	Load typ addr	-> tell ["iload_" ++ show addr]
+	
+	IConst i	-> tell ["iconst_" ++ show i]
+	Pop _		-> tell ["pop"]
+	Return _	-> tell ["return"]
+	Add _		-> tell ["iadd"]
+	
+	Call fun	-> tell [ ("invocestatic " ++ show fun), "nop" ]
+	
+	Label l		-> tell [show l ++ ":"]
+	Goto l		-> tell ["goto " ++ show l]
+	IfZ l		-> tell ["if_ifeq " ++ show l]
+	IfLt _ l	-> tell ["if_icmplt " ++ show l]
+
 
 data Code
 	= Store Type Addr	-- ^ Store stack content of type @Type@ in local variable @Addr@.
@@ -250,9 +273,9 @@ stmTop stm = case stm of
 
 newLabel :: Compile Label
 newLabel = do
-	l <- gets nextLabel
-	modify $ \ st -> st { nextLabel = succ l }
-	return $ l
+	L i <- gets nextLabel
+	modify $ \ st -> st { nextLabel = L $ i + 1 }
+	return $ L i
 
 grabOutput :: Compile () -> Compile Output
 grabOutput m = do
@@ -262,6 +285,36 @@ grabOutput m = do
 	put s'
 	return w
 
+newVar :: Id -> Type -> Compile ()
+newVar id typ = do
+	(c:cs) <- gets cxt
+	ll <- gets limitLocals
+	emit $ Store typ ll
+	modify $ \ st -> st { cxt = ((Map.insert id (typ, ll) c):cs), limitLocals = succ ll }
+	return ()
+
+lookupVar :: Id -> Compile (Type, Addr)
+lookupVar id = do
+	c <- gets cxt
+	let (typ, addr) = lookupVar' id c
+	emit $ Load typ addr
+	return (typ, addr)
+
+lookupVar' :: Id -> Cxt -> (Type, Addr)
+lookupVar' _ [] = error $ "pls no"
+lookupVar' id (c:cs) = case (Map.lookup id c) of
+	Just a	-> 	a
+	Nothing	-> lookupVar' id cs
+
+enterBlock :: Compile ()
+enterBlock = do
+	c <- gets cxt
+	modify $ \ st -> st { cxt = (Map.empty:c) }
+
+exitBlock :: Compile ()
+exitBlock = do
+	c <- gets cxt
+	modify $ \ st -> st { cxt = tail c }
 
 -- defToIdFun :: Def -> (Id, Fun)
 -- defToIdFun (DFun typ id args stms) = Fun ((Id id), (FunType (typ, (map (\(ADecl atyp aid) -> atyp) args))))
