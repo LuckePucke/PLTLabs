@@ -1,7 +1,7 @@
 # Makefile for PLT lab 3
 
 lab3: lab3.hs TypeChecker.hs Compiler.hs CPP/Test
-	ghc --make lab3.hs -o lab2
+	ghc --make lab3.hs -o lab3
 
 CPP/Test.hs CPP/Lex.x CPP/Layout.hs CPP/Par.y : CPP.cf
 	bnfc --haskell -d $<
@@ -18,8 +18,8 @@ CPP/Test: CPP/Test.hs CPP/Par.hs CPP/Lex.hs
 testfile: lab2
 	./lab2 testfile.cc
 
-test: lab2 lab2-testsuite/progs-test-lab2
-	./lab2-testsuite/progs-test-lab2 .
+test: lab3 lab3-testsuite/progs-test-lab3
+	./lab3-testsuite/progs-test-lab3 .
 
 clean:
 	-rm -f CPP/*.log CPP/*.aux CPP/*.hi CPP/*.o CPP/*.dvi

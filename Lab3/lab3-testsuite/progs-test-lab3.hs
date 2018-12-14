@@ -64,7 +64,7 @@ mainOpts (progdir : dirs) = do
   putStrLn "This is the test program for Programming Languages Lab 3"
   doubles <- readIORef includeDoubleTests
   unless doubles $ putStrLn "Make sure to include the --doubles flag if you also want to test programs including doubles."
-  let testdirs = if null dirs then ["good", "dir-for-path-test/one-more-dir"] else dirs
+  let testdirs = if null dirs then ["lab3-testsuite/good", "lab3-testsuite/dir-for-path-test/one-more-dir"] else dirs
   -- Cleanup files from old runs
   forM_ testdirs (flip cleanDirectory [".j", ".class"])
   domake <- readIORef doMake
