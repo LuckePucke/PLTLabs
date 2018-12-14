@@ -204,6 +204,9 @@ compileExp e = case e of
 		let fun = fromMaybe (error "unbound function") $ Map.lookup f sig
 		emit $ Call fun
 		emit $ Nop
+		if funRet (funType fun) == Type_void
+			then emit $ IConst 0
+			else return ()
 	
 	EPlus e1 e2 -> do
 		compileExp e1
@@ -251,7 +254,7 @@ emit code = case code of
 		tell ["iadd"]
 		decStack
 	
-	Return		-> tell ["return"]
+	Return		-> tell ["ireturn"]
 	Call fun	-> tell [("invokestatic " ++ show fun)]
 	Nop			-> tell ["nop"]
 	
