@@ -1,9 +1,9 @@
 
 module Compiler where
 
-import Annotated
-import CPP.Abs (Id(..), Type(..), Arg(..))
--- import CPP.Print
+--import Annotated
+import CPP.Abs -- (Program(..), Id(..), Type(..), Arg(..))
+import CPP.Print
 -- import CPP.ErrM
 import TypeChecker (FunType(..))
 
@@ -17,16 +17,19 @@ import qualified Data.Map as Map
 -- data FunDef = FunDef { funArgs :: [Id], funStms :: [Stm] }
 -- data FunType = FunType { funRet :: Type, funPars :: [Type] }
 type Cxt = [Block]
-type Block = Map Id (Type, Addr)
+type Block = Map Id Addr
 type Sig = Map Id Fun			-- function type signature
 data Fun = Fun { funId :: Id, funType :: FunType } 
 instance Show Fun where
 	show fun = case (funRet (funType fun)) of
-		Type_void	-> (show (funId fun)) ++ "(" ++ pars ++ ")V"
-		Type_bool	-> (show (funId fun)) ++ "(" ++ pars ++ ")Z"
-		Type_int	-> (show (funId fun)) ++ "(" ++ pars ++ ")I"
+		Type_void	-> (showId (funId fun)) ++ "(" ++ pars ++ ")V"
+		Type_bool	-> (showId (funId fun)) ++ "(" ++ pars ++ ")Z"
+		Type_int	-> (showId (funId fun)) ++ "(" ++ pars ++ ")I"
 		where
 		pars = showPars $ funPars (funType fun)
+
+showId :: Id -> String
+showId (Id str) = str
 
 showPars :: [Type] -> String
 showPars [] = ""
@@ -118,7 +121,7 @@ compileFun def@(DFun typ id args stms) = do
 	-- prepare environment
 	lab <- gets nextLabel
 	put initSt{ nextLabel = lab }
-	mapM_ (\ (ADecl t i) -> newVar i t) args
+	mapM_ (\ (ADecl _ i) -> newVar i) args
 
 	-- compile statements
 	w <- grabOutput $ do
@@ -143,7 +146,7 @@ compileStm s = do
 	-- Printing a comment
 	let top = stmTop s
 	unless (null top) $ do
-		tell [";; " ++ top]
+		tell ["", ";; " ++ top]
 --		tell $ map (";; " ++) $ lines top
 --		case s of SDecls{} -> return(); _ -> blank
 
@@ -154,17 +157,17 @@ compileStm s = do
 
 		SInit t x e -> do
 			compileExp e
-			newVar x t
-			(_, a) <- lookupVar x
-			emit $ Store t a
+			newVar x
+			a <- lookupVar x
+			emit $ Store a
 
-		SExp t e -> do
+		SExp e -> do
 			compileExp e
-			emit $ Pop t
+			emit $ Pop
 
-		SReturn t e -> do
+		SReturn e -> do
 			compileExp e
-			emit $ Return t
+			emit $ Return
 
 		SBlock ss -> do
 			enterBlock
@@ -192,26 +195,27 @@ compileExp e = case e of
 		emit $ IConst i
 	
 	EId x -> do
-		(t, a) <- lookupVar x
-		emit $ Load t a
+		a <- lookupVar x
+		emit $ Load a
 	
 	EApp f es -> do
 		mapM_ compileExp es
 		sig <- ask
 		let fun = fromMaybe (error "unbound function") $ Map.lookup f sig
 		emit $ Call fun
+		emit $ Nop
 	
-	EPlus t e1 e2 -> do
+	EPlus e1 e2 -> do
 		compileExp e1
 		compileExp e2
-		emit $ Add t
+		emit $ Add
 	
-	ELt	 t e1 e2 -> do
+	ELt e1 e2 -> do
 		compileExp e1
 		compileExp e2
 		yes	<- newLabel
 		done <- newLabel
-		emit $ IfLt t yes
+		emit $ IfLt yes
 		emit $ IConst 0
 		emit $ Goto done
 		emit $ Label yes
@@ -220,9 +224,9 @@ compileExp e = case e of
 	
 	EAss x e1 -> do
 		compileExp e1
-		(t, a) <- lookupVar x
-		emit $ Store t a
-		emit $ Load t a
+		a <- lookupVar x
+		emit $ Store a
+		emit $ Load a
 	
 	_ -> error $ "TODO: " ++ show e
 
@@ -230,37 +234,70 @@ compileExp e = case e of
 -- om vi ska updatera stacken, måste vi inte ta in den i nån form av input då? 
 emit :: Code -> Compile ()
 emit code = case code of
-	Store typ addr	-> tell ["istore_" ++ show addr]
-	Load typ addr	-> tell ["iload_" ++ show addr]
+	Store addr -> do
+		tell ["istore_" ++ show addr]
+		decStack
+	Load addr -> do
+		tell ["iload_" ++ show addr]
+		incStack
 	
-	IConst i	-> tell ["iconst_" ++ show i]
-	Pop _		-> tell ["pop"]
-	Return _	-> tell ["return"]
-	Add _		-> tell ["iadd"]
+	IConst i -> do
+		tell ["iconst_" ++ show i]
+		incStack
+	Pop -> do
+		tell ["pop"]
+		decStack
+	Add -> do
+		tell ["iadd"]
+		decStack
 	
-	Call fun	-> tell [ ("invocestatic " ++ show fun), "nop" ]
+	Return		-> tell ["return"]
+	Call fun	-> tell [("invokestatic " ++ show fun)]
+	Nop			-> tell ["nop"]
 	
 	Label l		-> tell [show l ++ ":"]
 	Goto l		-> tell ["goto " ++ show l]
-	IfZ l		-> tell ["if_ifeq " ++ show l]
-	IfLt _ l	-> tell ["if_icmplt " ++ show l]
+	
+	IfZ l -> do
+		tell ["if_ifeq " ++ show l]
+		decStack
+	IfLt l -> do
+		tell ["if_icmplt " ++ show l]
+		decStack
+		decStack
 
+incStack :: Compile ()
+incStack = do
+	cs <- gets currentStack
+	ls <- gets limitStack
+	let cs' = cs + 1
+	if (cs' > ls) then
+		modify $ \ st -> st { currentStack = cs', limitStack = cs' }
+	else
+		modify $ \ st -> st { currentStack = cs' }
+
+decStack :: Compile ()
+decStack = do
+	cs <- gets currentStack
+	let cs' = cs - 1
+	modify $ \ st -> st { currentStack = cs' }
 
 data Code
-	= Store Type Addr	-- ^ Store stack content of type @Type@ in local variable @Addr@.
-	| Load	Type Addr	-- ^ Push stack content of type @Type@ from local variable @Addr@.
+	= Store Addr	-- ^ Store stack content of type @Type@ in local variable @Addr@.
+	| Load Addr		-- ^ Push stack content of type @Type@ from local variable @Addr@.
 
 	| IConst Integer	-- ^ Put integer constant on the stack.
-	| Pop Type			-- ^ Pop something of type @Type@ from the stack.
-	| Return Type		-- ^ Return from method of type @Type@.
-	| Add Type			-- ^ Add 2 top values of stack.
+	| Pop				-- ^ Pop something of type @Type@ from the stack.
+	| Return			-- ^ Return from method of type @Type@.
+	| Add				-- ^ Add 2 top values of stack.
 
 	| Call Fun			-- ^ Call function.
+	| Nop
 
 	| Label Label		-- ^ Define label.
 	| Goto Label		-- ^ Jump to label.
 	| IfZ Label			-- ^ If top of stack is 0, jump to label.
-	| IfLt Type Label	-- ^ If prev <	top, jump.
+	| IfLt Label	-- ^ If prev <	top, jump.
 	
 	deriving (Show)
 
@@ -285,25 +322,25 @@ grabOutput m = do
 	put s'
 	return w
 
-newVar :: Id -> Type -> Compile ()
-newVar id typ = do
+newVar :: Id -> Compile ()
+newVar id = do
 	(c:cs) <- gets cxt
 	ll <- gets limitLocals
-	emit $ Store typ ll
-	modify $ \ st -> st { cxt = ((Map.insert id (typ, ll) c):cs), limitLocals = succ ll }
+	emit $ Store ll
+	modify $ \ st -> st { cxt = ((Map.insert id ll c):cs), limitLocals = succ ll }
 	return ()
 
-lookupVar :: Id -> Compile (Type, Addr)
+lookupVar :: Id -> Compile Addr
 lookupVar id = do
 	c <- gets cxt
-	let (typ, addr) = lookupVar' id c
-	emit $ Load typ addr
-	return (typ, addr)
+	let addr = lookupVar' id c
+	emit $ Load addr
+	return addr
 
-lookupVar' :: Id -> Cxt -> (Type, Addr)
+lookupVar' :: Id -> Cxt -> Addr
 lookupVar' _ [] = error $ "pls no"
 lookupVar' id (c:cs) = case (Map.lookup id c) of
-	Just a	-> 	a
+	Just a	-> a
 	Nothing	-> lookupVar' id cs
 
 enterBlock :: Compile ()
