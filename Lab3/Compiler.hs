@@ -191,8 +191,9 @@ compileStm s = do
 compileExp :: Exp -> Compile ()
 compileExp e = case e of
 	
-	EInt i -> do
-		emit $ IConst i
+	EInt i	-> emit $ IConst i
+	ETrue	-> emit $ IConst 1
+	EFalse	-> emit $ IConst 0
 	
 	EId x -> do
 		a <- lookupVar x
@@ -208,10 +209,57 @@ compileExp e = case e of
 			then emit $ IConst 0
 			else return ()
 	
+	EPostIncr id -> do
+		addr <- lookupVar id
+		emit $ Load addr
+		emit $ Dup
+		emit $ IConst 1
+		emit $ Add
+		emit $ Store addr
+
+	EPostDecr id -> do
+		addr <- lookupVar id
+		emit $ Load addr
+		emit $ Dup
+		emit $ IConst 1
+		emit $ Sub
+		emit $ Store addr
+
+	EPreIncr id -> do
+		addr <- lookupVar id
+		emit $ Load addr
+		emit $ IConst 1
+		emit $ Add
+		emit $ Dup
+		emit $ Store addr
+
+	EPreDecr id -> do
+		addr <- lookupVar id
+		emit $ Load addr
+		emit $ IConst 1
+		emit $ Sub
+		emit $ Dup
+		emit $ Store addr
+	
+	ETimes e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		emit $ Mul
+	
+	EDiv e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		emit $ Div
+	
 	EPlus e1 e2 -> do
 		compileExp e1
 		compileExp e2
 		emit $ Add
+	
+	EMinus e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		emit $ Sub
 	
 	ELt e1 e2 -> do
 		compileExp e1
@@ -250,8 +298,19 @@ emit code = case code of
 	Pop -> do
 		tell ["pop"]
 		decStack
+	Mul -> do
+		tell ["imul"]
+		decStack
+	
+	Div -> do
+		tell ["idiv"]
+		decStack
 	Add -> do
 		tell ["iadd"]
+		decStack
+	
+	Sub -> do
+		tell ["isub"]
 		decStack
 	
 	Return		-> tell ["ireturn"]
@@ -268,6 +327,10 @@ emit code = case code of
 		tell ["if_icmplt " ++ show l]
 		decStack
 		decStack
+	
+	Dup -> do
+		tell ["dup"]
+		incStack
 
 incStack :: Compile ()
 incStack = do
@@ -292,7 +355,10 @@ data Code
 	| IConst Integer	-- ^ Put integer constant on the stack.
 	| Pop				-- ^ Pop something of type @Type@ from the stack.
 	| Return			-- ^ Return from method of type @Type@.
+	| Mul
+	| Div
 	| Add				-- ^ Add 2 top values of stack.
+	| Sub
 
 	| Call Fun			-- ^ Call function.
 	| Nop
@@ -302,6 +368,7 @@ data Code
 	| IfZ Label			-- ^ If top of stack is 0, jump to label.
 	| IfLt Label	-- ^ If prev <	top, jump.
 	
+	| Dup
 	deriving (Show)
 
 stmTop :: Stm -> String
