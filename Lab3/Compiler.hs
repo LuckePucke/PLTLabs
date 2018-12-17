@@ -225,6 +225,9 @@ compileExp e = case e of
 		emit $ Sub
 		emit $ Store addr
 
+--	https://cs.au.dk/~mis/dOvs/jvmspec/ref-iinc.html
+--	Possible to make this easier if we are using
+--	local variables using iincr
 	EPreIncr id -> do
 		addr <- lookupVar id
 		emit $ Load addr
