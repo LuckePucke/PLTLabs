@@ -92,21 +92,21 @@ compile' name prg@(PDefs defs) = do
 		, ".super java/lang/Object"
 		, ""
 		, ".method public <init>()V"
-		, " .limit locals 1"
+		, "  .limit locals 1"
 		, ""
-		, " aload_0"
-		, " invokespecial java/lang/Object/<init>()V"
-		, " return"
+		, "  aload_0"
+		, "  invokespecial java/lang/Object/<init>()V"
+		, "  return"
 		, ""
 		, ".end method"
 		, ""
 		, ".method public static main([Ljava/lang/String;)V"
-		, " .limit locals 1"
-		, " .limit stack 1"
+		, "  .limit locals 1"
+		, "  .limit stack 1"
 		, ""
-		, " invokestatic " ++ name ++ "/main()I"
-		, " pop"
-		, " return"
+		, "  invokestatic " ++ name ++ "/main()I"
+		, "  pop"
+		, "  return"
 		, ""
 		, ".end method"
 		, ""
@@ -121,20 +121,20 @@ compileFun def@(DFun typ id args stms) = do
 	-- prepare environment
 	lab <- gets nextLabel
 	put initSt{ nextLabel = lab }
-	mapM_ (\ (ADecl _ i) -> newVar i) args
 
 	-- compile statements
 	w <- grabOutput $ do
+		mapM_ (\ (ADecl _ i) -> newVar i) args
 		mapM_ compileStm stms
 
 	-- output limits
 	ll <- gets limitLocals
 	ls <- gets limitStack
-	tell	[ " .limit locals " ++ show ll
-			, " .limit stack " ++ show ls ]
+	tell	[ "  .limit locals " ++ show ll
+			, "  .limit stack " ++ show ls ]
 
 	-- output code, indented by 1
-	tell $ map (\ s -> if null s then s else " " ++ s) w
+	tell $ map (\ s -> if null s then s else "  " ++ s) w
 
 	-- function footer
 	tell [ "", ".end method"]
@@ -155,11 +155,12 @@ compileStm s = do
 
 	case s of
 
-		SInit t x e -> do
+		SInit _ id e -> do
 			compileExp e
-			newVar x
-			a <- lookupVar x
-			emit $ Store a
+			newVar id
+
+		SDecls _ ids -> do
+			newVar $ head ids
 
 		SExp e -> do
 			compileExp e
@@ -184,6 +185,21 @@ compileStm s = do
 			compileStm s1
 			exitBlock
 			emit $ Goto start
+			emit $ Label done
+
+		SIfElse e s1 s2 -> do
+			false <- newLabel
+			done <- newLabel
+			compileExp e
+			emit $ IfZ false
+			enterBlock
+			compileStm s1
+			exitBlock
+			emit $ Goto done
+			emit $ Label false
+			enterBlock
+			compileStm s2
+			exitBlock
 			emit $ Label done
 
 		_ -> nyi
@@ -212,37 +228,22 @@ compileExp e = case e of
 	EPostIncr id -> do
 		addr <- lookupVar id
 		emit $ Load addr
-		emit $ Dup
-		emit $ IConst 1
-		emit $ Add
-		emit $ Store addr
+		emit $ IIncr addr 1
 
 	EPostDecr id -> do
 		addr <- lookupVar id
 		emit $ Load addr
-		emit $ Dup
-		emit $ IConst 1
-		emit $ Sub
-		emit $ Store addr
+		emit $ IIncr addr (-1)
 
---	https://cs.au.dk/~mis/dOvs/jvmspec/ref-iinc.html
---	Possible to make this easier if we are using
---	local variables using iincr
 	EPreIncr id -> do
 		addr <- lookupVar id
+		emit $ IIncr addr 1
 		emit $ Load addr
-		emit $ IConst 1
-		emit $ Add
-		emit $ Dup
-		emit $ Store addr
 
 	EPreDecr id -> do
 		addr <- lookupVar id
+		emit $ IIncr addr (-1)
 		emit $ Load addr
-		emit $ IConst 1
-		emit $ Sub
-		emit $ Dup
-		emit $ Store addr
 	
 	ETimes e1 e2 -> do
 		compileExp e1
@@ -275,10 +276,80 @@ compileExp e = case e of
 		emit $ Label yes
 		emit $ IConst 1
 		emit $ Label done
-	
-	EAss x e1 -> do
+
+	EGt e1 e2 -> do
 		compileExp e1
-		a <- lookupVar x
+		compileExp e2
+		yes	<- newLabel
+		done <- newLabel
+		emit $ IfGt yes
+		emit $ IConst 0
+		emit $ Goto done
+		emit $ Label yes
+		emit $ IConst 1
+		emit $ Label done
+
+	ELtEq e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		yes	<- newLabel
+		done <- newLabel
+		emit $ IfLtEq yes
+		emit $ IConst 0
+		emit $ Goto done
+		emit $ Label yes
+		emit $ IConst 1
+		emit $ Label done
+
+	EGtEq e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		yes	<- newLabel
+		done <- newLabel
+		emit $ IfGtEq yes
+		emit $ IConst 0
+		emit $ Goto done
+		emit $ Label yes
+		emit $ IConst 1
+		emit $ Label done
+	
+	EEq e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		yes	<- newLabel
+		done <- newLabel
+		emit $ IfEq yes
+		emit $ IConst 0
+		emit $ Goto done
+		emit $ Label yes
+		emit $ IConst 1
+		emit $ Label done
+	
+	ENEq e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		yes	<- newLabel
+		done <- newLabel
+		emit $ IfNEq yes
+		emit $ IConst 0
+		emit $ Goto done
+		emit $ Label yes
+		emit $ IConst 1
+		emit $ Label done
+	
+	EAnd e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		emit $ And
+	
+	EOr e1 e2 -> do
+		compileExp e1
+		compileExp e2
+		emit $ Or
+	
+	EAss id e1 -> do
+		compileExp e1
+		a <- lookupVar id
 		emit $ Store a
 		emit $ Load a
 	
@@ -301,21 +372,27 @@ emit code = case code of
 	Pop -> do
 		tell ["pop"]
 		decStack
+	
 	Mul -> do
 		tell ["imul"]
 		decStack
-	
 	Div -> do
 		tell ["idiv"]
 		decStack
 	Add -> do
 		tell ["iadd"]
 		decStack
-	
 	Sub -> do
 		tell ["isub"]
 		decStack
+	And -> do
+		tell ["iand"]
+		decStack
+	Or -> do
+		tell ["ior"]
+		decStack
 	
+	IIncr addr i -> tell ["iincr " ++ show addr ++ " " ++ show i]
 	Return		-> tell ["ireturn"]
 	Call fun	-> tell [("invokestatic " ++ show fun)]
 	Nop			-> tell ["nop"]
@@ -326,8 +403,34 @@ emit code = case code of
 	IfZ l -> do
 		tell ["if_ifeq " ++ show l]
 		decStack
+	
 	IfLt l -> do
 		tell ["if_icmplt " ++ show l]
+		decStack
+		decStack
+	
+	IfGt l -> do
+		tell ["if_icmpgt " ++ show l]
+		decStack
+		decStack
+	
+	IfLtEq l -> do
+		tell ["if_icmple " ++ show l]
+		decStack
+		decStack
+	
+	IfGtEq l -> do
+		tell ["if_icmpge " ++ show l]
+		decStack
+		decStack
+	
+	IfEq l -> do
+		tell ["if_icmpeq " ++ show l]
+		decStack
+		decStack
+	
+	IfNEq l -> do
+		tell ["if_icmpne " ++ show l]
 		decStack
 		decStack
 	
@@ -358,10 +461,13 @@ data Code
 	| IConst Integer	-- ^ Put integer constant on the stack.
 	| Pop				-- ^ Pop something of type @Type@ from the stack.
 	| Return			-- ^ Return from method of type @Type@.
+	| IIncr Addr Integer
 	| Mul
 	| Div
 	| Add				-- ^ Add 2 top values of stack.
 	| Sub
+	| And
+	| Or
 
 	| Call Fun			-- ^ Call function.
 	| Nop
@@ -369,7 +475,12 @@ data Code
 	| Label Label		-- ^ Define label.
 	| Goto Label		-- ^ Jump to label.
 	| IfZ Label			-- ^ If top of stack is 0, jump to label.
-	| IfLt Label	-- ^ If prev <	top, jump.
+	| IfLt Label		-- ^ If prev < top, jump.
+	| IfGt Label		-- ^ If prev > top, jump.
+	| IfLtEq Label
+	| IfGtEq Label
+	| IfEq Label
+	| IfNEq Label
 	
 	| Dup
 	deriving (Show)
@@ -407,7 +518,6 @@ lookupVar :: Id -> Compile Addr
 lookupVar id = do
 	c <- gets cxt
 	let addr = lookupVar' id c
-	emit $ Load addr
 	return addr
 
 lookupVar' :: Id -> Cxt -> Addr
