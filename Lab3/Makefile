@@ -1,7 +1,7 @@
 # Makefile for PLT lab 3
 
 lab3: lab3.hs TypeChecker.hs Compiler.hs CPP/Test
-	javac lab3-testsuite/good/Runtime.java
+	javac lab3-testsuite/Runtime.java
 	ghc --make lab3.hs -o lab3
 
 CPP/Test.hs CPP/Lex.x CPP/Layout.hs CPP/Par.y : CPP.cf
