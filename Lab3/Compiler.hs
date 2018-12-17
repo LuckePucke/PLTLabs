@@ -190,6 +190,7 @@ compileStm s = do
 			exitBlock
 			emit $ Goto start
 			emit $ Label done
+			emit $ Nop
 
 		SIfElse e s1 s2 -> do
 			false <- newLabel
@@ -205,6 +206,7 @@ compileStm s = do
 			compileStm s2
 			exitBlock
 			emit $ Label done
+			emit $ Nop
 
 		_ -> nyi
 
@@ -280,6 +282,7 @@ compileExp e = case e of
 		emit $ Label yes
 		emit $ IConst 1
 		emit $ Label done
+		emit $ Nop
 
 	EGt e1 e2 -> do
 		yes	<- newLabel
@@ -292,6 +295,7 @@ compileExp e = case e of
 		emit $ Label yes
 		emit $ IConst 1
 		emit $ Label done
+		emit $ Nop
 
 	ELtEq e1 e2 -> do
 		yes	<- newLabel
@@ -304,6 +308,7 @@ compileExp e = case e of
 		emit $ Label yes
 		emit $ IConst 1
 		emit $ Label done
+		emit $ Nop
 
 	EGtEq e1 e2 -> do
 		yes	<- newLabel
@@ -316,6 +321,7 @@ compileExp e = case e of
 		emit $ Label yes
 		emit $ IConst 1
 		emit $ Label done
+		emit $ Nop
 	
 	EEq e1 e2 -> do
 		yes	<- newLabel
@@ -328,6 +334,7 @@ compileExp e = case e of
 		emit $ Label yes
 		emit $ IConst 1
 		emit $ Label done
+		emit $ Nop
 	
 	ENEq e1 e2 -> do
 		yes	<- newLabel
@@ -340,16 +347,28 @@ compileExp e = case e of
 		emit $ Label yes
 		emit $ IConst 1
 		emit $ Label done
+		emit $ Nop
 	
 	EAnd e1 e2 -> do
+		done <- newLabel
 		compileExp e1
+		emit $ Dup
+		emit $ IfZ done
 		compileExp e2
 		emit $ And
+		emit $ Label done
+		emit $ Nop
+
 	
 	EOr e1 e2 -> do
+		done <- newLabel
 		compileExp e1
+		emit $ Dup
+		emit $ IfNZ done
 		compileExp e2
 		emit $ Or
+		emit $ Label done
+		emit $ Nop
 	
 	EAss id e1 -> do
 		compileExp e1
@@ -365,14 +384,14 @@ emit :: Code -> Compile ()
 emit code = case code of
 	Store addr -> do
 		decStack
-		tell ["istore_" ++ show addr]
+		tell ["istore " ++ show addr]
 	Load addr -> do
 		incStack
-		tell ["iload_" ++ show addr]
+		tell ["iload " ++ show addr]
 	
 	IConst i -> do
 		incStack
-		tell ["iconst_" ++ show i]
+		tell ["ldc " ++ show i]
 	Pop -> do
 		decStack
 		tell ["pop"]
@@ -407,6 +426,10 @@ emit code = case code of
 	IfZ l -> do
 		decStack
 		tell ["ifeq " ++ show l]
+
+	IfNZ l -> do
+		decStack
+		tell ["ifne " ++ show l]
 	
 	IfLt l -> do
 		decStack
@@ -479,6 +502,7 @@ data Code
 	| Label Label		-- ^ Define label.
 	| Goto Label		-- ^ Jump to label.
 	| IfZ Label			-- ^ If top of stack is 0, jump to label.
+	| IfNZ Label
 	| IfLt Label		-- ^ If prev < top, jump.
 	| IfGt Label		-- ^ If prev > top, jump.
 	| IfLtEq Label
