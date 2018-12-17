@@ -70,7 +70,7 @@ type Addr = Int
 builtin :: [(Id, Fun)]
 builtin =
   [ (Id "printInt",	Fun (Id "Runtime/printInt")	$ FunType Type_void [Type_int])
-  , (Id "readInt",	Fun (Id "Runtime/readInt")	$ FunType Type_void [])
+  , (Id "readInt",	Fun (Id "Runtime/readInt")	$ FunType Type_int [])
   ]
 
 compile :: String -> Program -> String
@@ -131,10 +131,14 @@ compileFun def@(DFun typ id args stms) = do
 	ll <- gets limitLocals
 	ls <- gets limitStack
 	tell	[ "  .limit locals " ++ show ll
-			, "  .limit stack " ++ show ls ]
+			, "  .limit stack " ++ show (1 + ls) ]
 
 	-- output code, indented by 1
 	tell $ map (\ s -> if null s then s else "  " ++ s) w
+
+	if (typ == Type_void)
+		then tell ["", "  return", ""]
+		else return ()
 
 	-- function footer
 	tell [ "", ".end method"]
@@ -160,9 +164,7 @@ compileStm s = do
 			a <- newVar id
 			emit $ Store a
 
-		SDecls _ ids -> do
-			a <- newVar $ head ids
-			emit $ Store a
+		SDecls _ ids -> mapM_ newVar ids
 
 		SExp e -> do
 			compileExp e
@@ -268,10 +270,10 @@ compileExp e = case e of
 		emit $ Sub
 	
 	ELt e1 e2 -> do
-		compileExp e1
-		compileExp e2
 		yes	<- newLabel
 		done <- newLabel
+		compileExp e1
+		compileExp e2
 		emit $ IfLt yes
 		emit $ IConst 0
 		emit $ Goto done
@@ -280,10 +282,10 @@ compileExp e = case e of
 		emit $ Label done
 
 	EGt e1 e2 -> do
-		compileExp e1
-		compileExp e2
 		yes	<- newLabel
 		done <- newLabel
+		compileExp e1
+		compileExp e2
 		emit $ IfGt yes
 		emit $ IConst 0
 		emit $ Goto done
@@ -292,10 +294,10 @@ compileExp e = case e of
 		emit $ Label done
 
 	ELtEq e1 e2 -> do
-		compileExp e1
-		compileExp e2
 		yes	<- newLabel
 		done <- newLabel
+		compileExp e1
+		compileExp e2
 		emit $ IfLtEq yes
 		emit $ IConst 0
 		emit $ Goto done
@@ -304,10 +306,10 @@ compileExp e = case e of
 		emit $ Label done
 
 	EGtEq e1 e2 -> do
-		compileExp e1
-		compileExp e2
 		yes	<- newLabel
 		done <- newLabel
+		compileExp e1
+		compileExp e2
 		emit $ IfGtEq yes
 		emit $ IConst 0
 		emit $ Goto done
@@ -316,10 +318,10 @@ compileExp e = case e of
 		emit $ Label done
 	
 	EEq e1 e2 -> do
-		compileExp e1
-		compileExp e2
 		yes	<- newLabel
 		done <- newLabel
+		compileExp e1
+		compileExp e2
 		emit $ IfEq yes
 		emit $ IConst 0
 		emit $ Goto done
@@ -328,10 +330,10 @@ compileExp e = case e of
 		emit $ Label done
 	
 	ENEq e1 e2 -> do
-		compileExp e1
-		compileExp e2
 		yes	<- newLabel
 		done <- newLabel
+		compileExp e1
+		compileExp e2
 		emit $ IfNEq yes
 		emit $ IConst 0
 		emit $ Goto done
@@ -362,83 +364,83 @@ compileExp e = case e of
 emit :: Code -> Compile ()
 emit code = case code of
 	Store addr -> do
-		tell ["istore_" ++ show addr]
 		decStack
+		tell ["istore_" ++ show addr]
 	Load addr -> do
-		tell ["iload_" ++ show addr]
 		incStack
+		tell ["iload_" ++ show addr]
 	
 	IConst i -> do
-		tell ["iconst_" ++ show i]
 		incStack
+		tell ["iconst_" ++ show i]
 	Pop -> do
-		tell ["pop"]
 		decStack
+		tell ["pop"]
 	
 	Mul -> do
+		decStack
 		tell ["imul"]
-		decStack
 	Div -> do
+		decStack
 		tell ["idiv"]
-		decStack
 	Add -> do
+		decStack
 		tell ["iadd"]
-		decStack
 	Sub -> do
+		decStack
 		tell ["isub"]
-		decStack
 	And -> do
+		decStack
 		tell ["iand"]
-		decStack
 	Or -> do
-		tell ["ior"]
 		decStack
+		tell ["ior"]
 	
-	IIncr addr i -> tell ["iincr " ++ show addr ++ " " ++ show i]
+	IIncr addr i -> tell ["iinc " ++ show addr ++ " " ++ show i]
 	Return		-> tell ["ireturn"]
-	Call fun	-> tell [("invokestatic " ++ show fun)]
+	Call fun	-> tell ["invokestatic " ++ show fun]
 	Nop			-> tell ["nop"]
 	
 	Label l		-> tell [show l ++ ":"]
 	Goto l		-> tell ["goto " ++ show l]
 	
 	IfZ l -> do
-		tell ["if_ifeq " ++ show l]
 		decStack
+		tell ["ifeq " ++ show l]
 	
 	IfLt l -> do
+		decStack
+		decStack
 		tell ["if_icmplt " ++ show l]
-		decStack
-		decStack
 	
 	IfGt l -> do
+		decStack
+		decStack
 		tell ["if_icmpgt " ++ show l]
-		decStack
-		decStack
 	
 	IfLtEq l -> do
+		decStack
+		decStack
 		tell ["if_icmple " ++ show l]
-		decStack
-		decStack
 	
 	IfGtEq l -> do
+		decStack
+		decStack
 		tell ["if_icmpge " ++ show l]
-		decStack
-		decStack
 	
 	IfEq l -> do
+		decStack
+		decStack
 		tell ["if_icmpeq " ++ show l]
-		decStack
-		decStack
 	
 	IfNEq l -> do
+		decStack
+		decStack
 		tell ["if_icmpne " ++ show l]
-		decStack
-		decStack
 	
 	Dup -> do
-		tell ["dup"]
 		incStack
+		tell ["dup"]
 
 incStack :: Compile ()
 incStack = do
