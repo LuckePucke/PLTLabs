@@ -157,10 +157,12 @@ compileStm s = do
 
 		SInit _ id e -> do
 			compileExp e
-			newVar id
+			a <- newVar id
+			emit $ Store a
 
 		SDecls _ ids -> do
-			newVar $ head ids
+			a <- newVar $ head ids
+			emit $ Store a
 
 		SExp e -> do
 			compileExp e
@@ -506,13 +508,12 @@ grabOutput m = do
 	put s'
 	return w
 
-newVar :: Id -> Compile ()
+newVar :: Id -> Compile Addr
 newVar id = do
 	(c:cs) <- gets cxt
 	ll <- gets limitLocals
-	emit $ Store ll
 	modify $ \ st -> st { cxt = ((Map.insert id ll c):cs), limitLocals = succ ll }
-	return ()
+	return ll
 
 lookupVar :: Id -> Compile Addr
 lookupVar id = do
