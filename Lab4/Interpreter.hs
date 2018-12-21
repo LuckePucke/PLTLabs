@@ -28,7 +28,7 @@ data Strategy
 
 -- | Context
 
-type Sig = Map Ident FunDef	-- function type signature
+type Sig = Map Ident FunDef
 data FunDef = FunDef [Ident] Exp
 type Env = Map Ident Entry
 data Entry
@@ -57,24 +57,72 @@ interpret strategy (Prog defs (DMain mainExp)) = do
 
 eval :: Cxt -> Exp -> Err Value
 eval cxt exp = case exp of
+
 	EVar id	-> case (Map.lookup id (cxtEnv cxt)) of
 		Just entry	-> evalEntry cxt entry
 		Nothing		-> fail "entry not in env"
 
 	EInt i	-> return $ VInt i
 
-	EApp e1 e2 -> fail "TODO: EApp e1 e2"
-	-- eval e2
-	-- smäll in någe (e2?) i cxt
-	-- return $ eval e1
+	EApp e1 e2 -> evalApp cxt [] (EApp e1 e2)
 
-	EAdd e1 e2 -> fail "TODO"
-	ESub e1 e2 -> fail "TODO"
-	ELt e1 e2 -> fail "TODO"
-	EIf cond te fe -> fail "TODO"
+	EAdd e1 e2 -> do
+		a <-  eval cxt e1
+		b <-  eval cxt e2
+		a' <- evalValue cxt a
+		b' <- evalValue cxt b
+		return $ VInt (a' + b')
+
+	ESub e1 e2 -> do
+		a <-  eval cxt e1
+		b <-  eval cxt e2
+		a' <- evalValue cxt a
+		b' <- evalValue cxt b
+		return $ VInt (a' - b')
+
+	ELt e1 e2 -> do
+		a <-  eval cxt e1
+		b <-  eval cxt e2
+		a' <- evalValue cxt a
+		b' <- evalValue cxt b
+		if a' < b'
+			then return $ VInt 1
+			else return $ VInt 0
+
+	EIf cond te fe -> do
+		cv <- eval cxt cond
+		c <- evalValue cxt cv
+		case c of
+			1 -> eval cxt te
+			0 -> eval cxt fe
+		-- öööh behöver vi bry oss om name vs value skiten?
+
 	EAbs id e -> fail "TODO"
+		--do
+--		let env = cxtEnv cxt
+--		Map.insert id (
 
-		
+evalApp :: Cxt -> [Value] -> Exp -> Err Value
+evalApp cxt vals (EVar id) = case Map.lookup id (cxtSig cxt) of
+	Just (FunDef ids exp) -> do
+		cxt' <- evalApp' cxt ids vals
+		eval cxt' exp
+	otherwise -> fail "Fun id not a def in sig."
+evalApp cxt vals (EApp e1 e2) = do
+	val <- eval cxt e2
+	evalApp cxt (val:vals) e1
+
+evalApp' :: Cxt -> [Ident] -> [Value] -> Err Cxt
+evalApp' cxt [] [] = return cxt
+evalApp' cxt [] _ = fail "Given too many arguments."
+evalApp' cxt _ [] = fail "Given too few arguments."
+evalApp' cxt (id:ids) (v:vs) = evalApp' (cxt {cxtEnv = (Map.insert id (Val v) (cxtEnv cxt))}) ids vs
+
+evalValue :: Cxt -> Value -> Err Integer
+evalValue cxt (VInt i) = return i
+evalValue cxt (VClos e env) = do
+	val <- eval (cxt { cxtEnv = env }) e
+	evalValue cxt val 
 
 evalEntry :: Cxt -> Entry -> Err Value
 evalEntry cxt (Val v) = return v
