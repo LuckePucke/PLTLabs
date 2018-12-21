@@ -17,6 +17,8 @@ files=lab4.hs hgrammar.cf Makefile Interpreter.hs
 lab4 : $(files) Hgrammar/Test
 	ghc --make lab4.hs -o lab4
 
+run: 
+	cd lab4-testsuite; make; ./progs-test-lab4 ../
 # Rules to build the parser:
 
 Hgrammar/Test.hs Hgrammar/Lex.x Hgrammar/Par.y : hgrammar.cf
