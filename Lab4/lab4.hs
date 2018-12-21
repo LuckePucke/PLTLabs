@@ -42,12 +42,12 @@ parse s = case pProgram (myLexer s) of
 
 eval :: Strategy -> Program -> IO ()
 eval strategy prg = do
-  case runExcept $ interpret strategy prg of
-    Left err -> do
+  case interpret strategy prg of
+    Bad err -> do
       putStrLn "INTERPRETER ERROR"
       putStrLn err
       exitFailure
-    Right i -> do
+    Ok i -> do
       putStrLn $ show i
       hPutStrLn stderr "OK"
       exitSuccess
