@@ -6,10 +6,10 @@ import System.IO            (hPutStrLn, readFile, stderr)
 import System.Environment   (getArgs)
 import System.Exit          (exitFailure, exitSuccess)
 
-import Fun.Abs              (Program)
-import Fun.Par              (pProgram, myLexer)
-import Fun.Print            (printTree)
-import Fun.ErrM             (Err(..))
+import Hgrammar.Abs         (Program)
+import Hgrammar.Par         (pProgram, myLexer)
+import Hgrammar.Print       (printTree)
+import Hgrammar.ErrM        (Err(..))
 
 import Interpreter          (Strategy(..), interpret)
 

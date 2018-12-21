@@ -4,7 +4,7 @@
 ###########################################################################
 
 # Files of solution.  Add more files as needed.  'lab4.hs'  has to be first!
-files=lab4.hs Fun.cf Makefile Interpreter.hs
+files=lab4.hs hgrammar.cf Makefile Interpreter.hs
 
 ###########################################################################
 
@@ -12,14 +12,14 @@ files=lab4.hs Fun.cf Makefile Interpreter.hs
 .PHONY : sdist clean distclean
 
 # 'lab4' is default goal and needs to remain first goal in this file!
-# The extra dependency Fun/Test ensures that the parser is built from Fun.cf
+# The extra dependency Hgrammar/Test ensures that the parser is built from hgrammar.cf
 
-lab4 : $(files) Fun/Test
+lab4 : $(files) Hgrammar/Test
 	ghc --make lab4.hs -o lab4
 
 # Rules to build the parser:
 
-Fun/Test.hs Fun/Lex.x Fun/Par.y : Fun.cf
+Hgrammar/Test.hs Hgrammar/Lex.x Hgrammar/Par.y : hgrammar.cf
 	bnfc --haskell -d $<
 
 %.hs : %.y
@@ -29,7 +29,7 @@ Fun/Test.hs Fun/Lex.x Fun/Par.y : Fun.cf
 %.hs : %.x
 	alex --ghc $<
 
-Fun/Test : Fun/Test.hs Fun/Par.hs Fun/Lex.hs
+Hgrammar/Test : Hgrammar/Test.hs Hgrammar/Par.hs Hgrammar/Lex.hs
 	ghc --make $< -o $@
 
 # Rules for shipping the solution:
@@ -45,11 +45,11 @@ lab4.tar.gz : $(files)
 # Rules for cleaning generated files:
 
 clean :
-	-rm -f Fun/*.log Fun/*.aux Fun/*.hi Fun/*.o Fun/*.dvi *.hi *.o
+	-rm -f Hgrammar/*.log Hgrammar/*.aux Hgrammar/*.hi Hgrammar/*.o Hgrammar/*.dvi *.hi *.o
 
 distclean : clean
-	-rm -f Fun/Doc.* Fun/Lex.* Fun/Par.* Fun/Layout.* Fun/Skel.* Fun/Print.* Fun/Test.* Fun/Abs.* Fun/Test Fun/ErrM.* Fun/SharedString.* Fun/ComposOp.* Fun/Fun.dtd Fun/XML.* Fun/*.bak
-	-rmdir -p Fun/
+	-rm -f Hgrammar/Doc.* Hgrammar/Lex.* Hgrammar/Par.* Hgrammar/Layout.* Hgrammar/Skel.* Hgrammar/Print.* Hgrammar/Test.* Hgrammar/Abs.* Hgrammar/Test Hgrammar/ErrM.* Hgrammar/SharedString.* Hgrammar/ComposOp.* Hgrammar/Fun.dtd Hgrammar/XML.* Hgrammar/*.bak
+	-rmdir -p Hgrammar/
 	-rm -f lab4.tar.gz lab4
 
 # EOF

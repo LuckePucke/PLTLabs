@@ -15,8 +15,8 @@ import Data.Functor
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Fun.Abs
-import Fun.Print
+import Hgrammar.Abs
+import Hgrammar.Print
 
 -- | Evaluation strategy.
 
