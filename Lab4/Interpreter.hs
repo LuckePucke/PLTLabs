@@ -15,6 +15,7 @@ import Data.Functor
 import Data.Maybe
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Debug.Trace
 
 import Hgrammar.Abs
 import Hgrammar.Print
@@ -37,6 +38,9 @@ data Entry
 data Value
 	= VInt Integer
 	| VClos Exp Env
+instance Show Value where
+	show (VInt i) = "VInt " ++ show i
+	show (VClos exp env) = "VClos " ++ show exp
 
 data Cxt = Cxt
 	{ cxtStrategy :: Strategy
@@ -53,32 +57,40 @@ interpret strategy (Prog defs (DMain mainExp)) = do
 	val <- eval cxt mainExp
 	case val of
 		(VInt i) -> return i
-		otherwise -> fail "main should return an integer."
+		(VClos exp env) -> do
+			let cxt' = cxt {cxtEnv = env}
+			val' <- eval cxt' exp
+			evalValue cxt' val'
 
 eval :: Cxt -> Exp -> Err Value
 eval cxt exp = case exp of
 
 	EVar id	-> case (Map.lookup id (cxtEnv cxt)) of
 		Just entry	-> evalEntry cxt entry
-		Nothing		-> fail "entry not in env"
+		Nothing		-> case (Map.lookup id (cxtSig cxt)) of
+			Just (FunDef [] e) -> case (cxtStrategy cxt) of
+				CallByName -> return $ VClos e (cxtEnv cxt)
+				CallByValue -> eval cxt e
+			Just (FunDef ids e) -> fail "sluta."
+			Nothing -> fail $ "entry " ++ show id ++ " not in env or sig"
 
 	EInt i	-> return $ VInt i
 
-	EApp e1 e2 -> evalApp (cxt {cxtEnv = Map.empty}) [] (EApp e1 e2)
+	EApp e1 e2 -> trace ("EApp " ++ show e1 ++ " | " ++ show e2 ++ "\n") $ evalApp cxt [] (EApp e1 e2)
 
 	EAdd e1 e2 -> do
 		a <-  eval cxt e1
 		b <-  eval cxt e2
 		a' <- evalValue cxt a
 		b' <- evalValue cxt b
-		return $ VInt (a' + b')
+		trace ("EAdd\n") (return $ VInt (a' + b'))
 
 	ESub e1 e2 -> do
 		a <-  eval cxt e1
 		b <-  eval cxt e2
 		a' <- evalValue cxt a
 		b' <- evalValue cxt b
-		return $ VInt (a' - b')
+		trace ("ESub\n") (return $ VInt (a' - b'))
 
 	ELt e1 e2 -> do
 		a <-  eval cxt e1
@@ -112,9 +124,13 @@ evalApp cxt [val] (EAbs id exp) = do
 	cxt' <- evalApp' cxt [id] [val]
 	eval cxt' exp
 evalApp cxt vals (EAbs id exp) = fail "More than one argument provided to lambda fun."
-evalApp cxt vals (EApp e1 e2) = do
-	val <- eval cxt e2
-	evalApp cxt (val:vals) e1
+evalApp cxt vals (EApp e1 e2) = case (cxtStrategy cxt) of
+	CallByValue -> do
+		val <- eval cxt e2
+		evalApp cxt (vals ++ [val]) e1
+	CallByName -> do
+		let val = VClos e2 (cxtEnv cxt)
+		trace ("evalApp: val(e2) = " ++ show val) $ evalApp cxt (val:vals) e1
 
 evalApp' :: Cxt -> [Ident] -> [Value] -> Err Cxt
 evalApp' cxt [] [] = return cxt
