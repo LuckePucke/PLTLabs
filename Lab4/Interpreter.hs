@@ -76,7 +76,9 @@ eval cxt exp = case exp of
 
 	EInt i	-> return $ VInt i
 
-	EApp e1 e2 -> trace ("EApp " ++ show e1 ++ " | " ++ show e2 ++ "\n") $ evalApp cxt [] (EApp e1 e2)
+	EApp e1 e2 -> case e1 of
+		(EAbs id e) -> trace ("EApp " ++ show e1 ++ " | " ++ show e2 ++ "\n") $ evalAbs cxt e1 e2
+		otherwise -> trace ("EApp " ++ show e1 ++ " | " ++ show e2 ++ "\n") $ evalApp cxt [] (EApp e1 e2)
 
 	EAdd e1 e2 -> do
 		a <-  eval cxt e1
@@ -109,25 +111,31 @@ eval cxt exp = case exp of
 			0 -> eval cxt fe
 		-- öööh behöver vi bry oss om name vs value skiten?
 
-	EAbs id e -> fail "EAbs needs to be handled by a EApp"
-		--do
---		let env = cxtEnv cxt
---		Map.insert id (
+	EAbs id e -> fail $ "not called by EApp"
+
+evalAbs :: Cxt -> Exp -> Exp -> Err Value
+evalAbs cxt (EAbs id exp) inp = do
+	val <- eval cxt inp
+	let cxt' = cxt { cxtEnv = Map.empty }
+	cxt'' <- evalApp' cxt' [id] [val]
+	eval cxt'' exp
 
 evalApp :: Cxt -> [Value] -> Exp -> Err Value
 evalApp cxt vals (EVar id) = case Map.lookup id (cxtSig cxt) of
 	Just (FunDef ids exp) -> do
-		cxt' <- evalApp' cxt ids vals
-		eval cxt' exp
+		let cxt' = cxt { cxtEnv = Map.empty }
+		cxt'' <- evalApp' cxt' ids vals
+		eval cxt'' exp
 	otherwise -> fail "Fun id not a def in sig."
-evalApp cxt [val] (EAbs id exp) = do
+{-evalApp cxt [val] (EAbs id exp) = do
 	cxt' <- evalApp' cxt [id] [val]
 	eval cxt' exp
 evalApp cxt vals (EAbs id exp) = fail "More than one argument provided to lambda fun."
+-}
 evalApp cxt vals (EApp e1 e2) = case (cxtStrategy cxt) of
 	CallByValue -> do
 		val <- eval cxt e2
-		evalApp cxt (vals ++ [val]) e1
+		evalApp cxt (val:vals) e1
 	CallByName -> do
 		let val = VClos e2 (cxtEnv cxt)
 		trace ("evalApp: val(e2) = " ++ show val) $ evalApp cxt (val:vals) e1
