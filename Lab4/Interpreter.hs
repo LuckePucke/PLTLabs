@@ -29,8 +29,7 @@ data Strategy
 
 -- | Context
 
-type Sig = Map Ident FunDef
-data FunDef = FunDef [Ident] Exp
+type Sig = Map Ident Exp
 type Env = Map Ident Entry
 data Entry
 	= Val Value
@@ -52,7 +51,8 @@ data Cxt = Cxt
 
 interpret :: Strategy -> Program -> Err Integer
 interpret strategy (Prog defs (DMain mainExp)) = do
-	let sig = newDefs Map.empty defs
+	let defToSigEntry (DDef f xs e) = (f, foldr EAbs e xs)
+	let sig = Map.fromList (map defToSigEntry defs)
 	let cxt = Cxt strategy sig Map.empty
 	val <- eval cxt mainExp
 	case val of
@@ -72,19 +72,18 @@ eval cxt exp = case exp of
 	EVar id	-> case (Map.lookup id (cxtEnv cxt)) of
 		Just entry	-> evalEntry cxt entry
 		Nothing		-> case (Map.lookup id (cxtSig cxt)) of
-			Just (FunDef ids e) -> eval (newEnv cxt) e
+			Just e	-> eval (newEnv cxt) e
 			Nothing -> fail $ "entry " ++ show id ++ " not in env or sig"
-
+	
 	EInt i	-> return $ VInt i
 
-	EApp fun args -> do
-		
+	EApp fun args -> trace (show fun ++ " | " ++ show args) $ do	
 		clos <- eval cxt fun
 		case clos of
-			VClos id funExp env -> trace (show id ++ " : " ++ show args ++ " = " ++ show funExp) $ case (cxtStrategy cxt) of
+			VClos id funExp env -> trace ("  " ++ show id ++ " : " ++ show args ++ " = " ++ show funExp) $ case (cxtStrategy cxt) of
 				
 				CallByName -> do
-					let entry = Clos args env
+					let entry = Clos args (cxtEnv cxt)
 					eval cxt { cxtEnv = Map.insert id entry env } funExp
 				
 				CallByValue -> do
@@ -109,10 +108,10 @@ eval cxt exp = case exp of
 		trace ("ESub\n") (return $ VInt (a' - b'))
 
 	ELt e1 e2 -> do
-		a <-  eval cxt e1
-		b <-  eval cxt e2
-		a' <- evalValue cxt a
-		b' <- evalValue cxt b
+		a	<- eval cxt e1
+		b	<- eval cxt e2
+		a'	<- evalValue cxt a
+		b'	<- evalValue cxt b
 		if a' < b'
 			then return $ VInt 1
 			else return $ VInt 0
@@ -127,12 +126,12 @@ eval cxt exp = case exp of
 
 	EAbs id e -> return $ VClos id e (cxtEnv cxt)
 
-
 evalValue :: Cxt -> Value -> Err Integer
 evalValue cxt (VInt i) = return i
 evalValue cxt (VClos id e env) = do
-	val <- eval (cxt { cxtEnv = env }) e
-	evalValue cxt val 
+	let cxt' = cxt { cxtEnv = env }
+	val <- eval cxt' e
+	evalValue cxt' val
 
 evalEntry :: Cxt -> Entry -> Err Value
 evalEntry cxt (Val v) = return v
@@ -140,7 +139,7 @@ evalEntry cxt (Clos e env) = eval (cxt { cxtEnv = env }) e
 
 newDefs :: Sig -> [Def] -> Sig
 newDefs sig [] = sig
-newDefs sig ((DDef id ids exp):ds) = newDefs (Map.insert id (FunDef ids exp) sig) ds
+newDefs sig ((DDef id ids exp):ds) = newDefs (Map.insert id exp sig) ds
 
 
 
