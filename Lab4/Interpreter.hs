@@ -57,7 +57,7 @@ interpret strategy (Prog defs (DMain mainExp)) = do
 	val <- eval cxt mainExp
 	case val of
 		VInt i -> return i
-		VClos{} -> fail $ "main: not int."
+		VClos{} -> fail $ "INTERPRETER ERROR: main should return int."
 --		(VClos id exp env) -> do
 --			let cxt' = cxt {cxtEnv = env}
 --			val' <- eval cxt' exp
@@ -73,11 +73,11 @@ eval cxt exp = case exp of
 		Just entry	-> evalEntry cxt entry
 		Nothing		-> case (Map.lookup id (cxtSig cxt)) of
 			Just e	-> eval (newEnv cxt) e
-			Nothing -> fail $ "entry " ++ show id ++ " not in env or sig"
+			Nothing -> fail $ "INTERPRETER ERROR: entry " ++ show id ++ " not in env or sig"
 	
 	EInt i	-> return $ VInt i
 
-	EApp fun args -> trace (show fun ++ " | " ++ show args) $ do	
+	EApp fun args -> trace (show fun ++ " | " ++ show args) $ do
 		clos <- eval cxt fun
 		case clos of
 			VClos id funExp env -> trace ("  " ++ show id ++ " : " ++ show args ++ " = " ++ show funExp) $ case (cxtStrategy cxt) of
@@ -91,28 +91,22 @@ eval cxt exp = case exp of
 					let cxt' = cxt { cxtEnv = Map.insert id (Val val) env } 
 					eval cxt' funExp
 			
-			_ -> fail $ "should be function."
+			_ -> fail $ "INTERPRETER ERROR: should be function."
 	
 	EAdd e1 e2 -> do
-		a <-  eval cxt e1
-		b <-  eval cxt e2
-		a' <- evalValue cxt a
-		b' <- evalValue cxt b
-		trace ("EAdd\n") (return $ VInt (a' + b'))
+		(VInt a)	<- eval cxt e1
+		(VInt b)	<- eval cxt e2
+		trace ("EAdd\n") (return $ VInt (a + b))
 
 	ESub e1 e2 -> do
-		a <-  eval cxt e1
-		b <-  eval cxt e2
-		a' <- evalValue cxt a
-		b' <- evalValue cxt b
-		trace ("ESub\n") (return $ VInt (a' - b'))
+		(VInt a)	<- eval cxt e1
+		(VInt b)	<- eval cxt e2
+		trace ("ESub\n") (return $ VInt (a - b))
 
 	ELt e1 e2 -> do
-		a	<- eval cxt e1
-		b	<- eval cxt e2
-		a'	<- evalValue cxt a
-		b'	<- evalValue cxt b
-		if a' < b'
+		(VInt a)	<- eval cxt e1
+		(VInt b)	<- eval cxt e2
+		if a < b
 			then return $ VInt 1
 			else return $ VInt 0
 
