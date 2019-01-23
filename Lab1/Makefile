@@ -24,6 +24,9 @@ run6:
 
 run: run1 run2 run3 run4 run5 run6
 
+test: CPP.cf lab1-testsuite/progs-test-lab1
+	./lab1-testsuite/progs-test-lab1 CPP.cf
+
 clean:
 	-rm -f *.log *.aux *.hi *.o *.dvi
 
