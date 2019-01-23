@@ -190,7 +190,7 @@ usage = do
 main :: IO ()
 main = do
   testdir <- pwd
-  codedir <- makeAbsolute =<< parseArgs =<< getArgs
+  codedir <- parseArgs =<< getArgs
   let lab4 = codedir </> executable_name
 
   cd codedir
