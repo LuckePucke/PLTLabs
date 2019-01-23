@@ -81,13 +81,13 @@ ENEq.		Exp8 ::= Exp8 "!=" Exp9 ;
 EAnd.		Exp4 ::= Exp4 "&&" Exp5 ; 
 EOr.		Exp3 ::= Exp3 "||" Exp4 ; 
 
-EAss.		Exp2 ::= Exp2 "=" Exp3 ; 
-EAddAss.	Exp2 ::= Exp2 "+=" Exp3 ; 
-ESubAss.	Exp2 ::= Exp2 "-=" Exp3 ;
+EAss.		Exp2 ::= Exp2 "=" Exp1 ; 
+EAddAss.	Exp2 ::= Exp2 "+=" Exp1 ; 
+ESubAss.	Exp2 ::= Exp2 "-=" Exp1 ;
 
-ECond. 		Exp2 ::= Exp2 "?" Exp3 ":" Exp4 ; 
+ECond. 		Exp2 ::= Exp2 "?" Exp ":" Exp3 ; 
 
-EExc.		Exp1 ::= "throw" Exp1 ; 
+EExc.		Exp1 ::= "throw" Exp1 ;  
 
 token Id (
 		(letter (letter | digit | '_')*)
